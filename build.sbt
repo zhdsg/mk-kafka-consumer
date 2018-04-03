@@ -9,7 +9,8 @@ val sparkVersion = "2.2.0"
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-streaming" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion
+  "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
+  "com.typesafe" % "config" % "1.3.3"
 )
 
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>

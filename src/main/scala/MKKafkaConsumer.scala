@@ -11,6 +11,7 @@ import org.apache.spark.streaming.kafka010._
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
+import com.typesafe.config.ConfigFactory
 
 object MKKafkaConsumer extends Logging {
   def main(args: Array[String]) {
@@ -23,7 +24,8 @@ object MKKafkaConsumer extends Logging {
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
-    val topics = Array("useraction")
+    val configedTopic = ConfigFactory.load().getString("kafka.topic")
+    val topics = Array(configedTopic)
 
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
