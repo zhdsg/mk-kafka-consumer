@@ -39,6 +39,8 @@ object MKKafkaConsumer extends Logging {
     if(localDevEnv) sparkConf.setMaster("local")
 
     val ssc = new StreamingContext(sparkConf, Seconds(2))
+    //Because of updateStateByKey requires this
+    ssc.checkpoint("/tmp/log-analyzer-streaming")
     ssc.sparkContext.setLogLevel("ERROR")
 
     // Create direct kafka stream with brokers and topics
@@ -50,12 +52,13 @@ object MKKafkaConsumer extends Logging {
 
     //Filter out kafka metadata
     val messages = stream.map(_.value)
-    val jsonMessages = messages.transform(rdd=> {
+    val structuredMessages = messages.transform(rdd=> {
       val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
       //Transform String rdd into structured DataFrame by parsing JSON
       import spark.implicits._
       val ds = spark.createDataset[String](rdd)
       val df = spark.read.json(ds)
+
       //Check, because sometimes rdd is empty and then next operation has exception
       if (df.columns.contains("t"))
         //Add new column to DataFrame: DateType parsed from timestamp
@@ -64,13 +67,37 @@ object MKKafkaConsumer extends Logging {
         df.rdd
     })
 
-    //Debug print
-    jsonMessages.print(1000)
+    //Create State Updating function for mapWithState function
+    val stateSpec = StateSpec.function(basicInfoStateUpdate _)
+
+    structuredMessages
+      //Create Key from _id and date and prepare for simple count aggregation
+      .map(x=>((x.getAs[String]("_id"),x.getAs[String]("date")),1L))
+      //Group by "_id x date" key and aggregate count
+      .reduceByKey(_ + _)
+      //Produce stateful streaming, so when new message come, they are aggregated with previous results and only new stuff should be updated
+      .mapWithState(stateSpec)
+      //Debug print
+      .print(1000)
 
     logInfo("start the computation...")
     ssc.start()
     ssc.awaitTermination()
     logInfo("computation done!")
+  }
+
+  def basicInfoStateUpdate(key:(String,String),value:Option[(Long)],state:State[Long]): Option[((String,String),Long)] = {
+    val v = value.get
+    if (state.exists()) {
+      // For existing keys
+      val currentSet = state.get()
+      state.update(currentSet + v)
+      Some(key, state.get)
+    } else {
+      // For new keys
+      state.update(v)
+      Some(key, v)
+    }
   }
 }
 
