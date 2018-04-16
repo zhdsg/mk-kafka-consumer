@@ -20,13 +20,14 @@ object MKKafkaConsumer extends Logging {
   def main(args: Array[String]) {
     val config = ConfigFactory.load()
     val localDevEnv = config.getBoolean("environment.localDev")
+    val processFromStart = config.getBoolean("environment.processFromStart")
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "test-consumer-group",
-      "auto.offset.reset" -> (if(localDevEnv) "earliest" else "latest"),
+      "auto.offset.reset" -> (if(processFromStart) "earliest" else "latest"),
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
@@ -41,7 +42,10 @@ object MKKafkaConsumer extends Logging {
     val ssc = new StreamingContext(sparkConf, Seconds(2))
     //Because of updateStateByKey requires this
     ssc.checkpoint("/tmp/log-analyzer-streaming")
-    ssc.sparkContext.setLogLevel("ERROR")
+    if(localDevEnv)
+      ssc.sparkContext.setLogLevel("ERROR")
+    else
+      ssc.sparkContext.setLogLevel("DEBUG")
 
     // Create direct kafka stream with brokers and topics
     val stream = KafkaUtils.createDirectStream[String, String](
@@ -66,17 +70,16 @@ object MKKafkaConsumer extends Logging {
       else
         df.rdd
     })
-
     //Create State Updating function for mapWithState function
     val stateSpec = StateSpec.function(basicInfoStateUpdate _)
 
     structuredMessages
       //Create Key from _id and date and prepare for simple count aggregation
-      .map(x=>((x.getAs[String]("_id"),x.getAs[String]("date")),1L))
+      .map(x=>((x.getAs[String]("uid"),x.getAs[String]("_id"),x.getAs[DateType]("date")),1L))
       //Group by "_id x date" key and aggregate count
       .reduceByKey(_ + _)
       //Produce stateful streaming, so when new message come, they are aggregated with previous results and only new stuff should be updated
-      .mapWithState(stateSpec)
+      //.mapWithState(stateSpec)
       //Debug print
       .print(1000)
 
