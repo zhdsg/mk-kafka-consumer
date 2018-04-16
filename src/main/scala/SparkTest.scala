@@ -4,7 +4,6 @@
 import java.sql.Timestamp
 import java.util.Properties
 
-import MKKafkaConsumer.logInfo
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession

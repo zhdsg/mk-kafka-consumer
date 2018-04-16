@@ -2,20 +2,14 @@
   * Created by raven on 29/03/2018.
   */
 
-import java.util.Properties
-
-import kafka.log.Log
-import org.apache.kafka.clients.consumer.ConsumerRecord
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
-import org.apache.spark.streaming._
-import org.apache.spark.streaming.kafka010._
-import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
-import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
-import com.typesafe.config.ConfigFactory
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.streaming._
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+import org.apache.spark.streaming.kafka010._
 
 object MKKafkaConsumer extends Logging {
   def main(args: Array[String]) {
