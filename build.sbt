@@ -1,4 +1,4 @@
-val localDev = false
+val localDev = true
 
 name := "mk-kafka-consumer"
 
