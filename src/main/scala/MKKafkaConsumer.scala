@@ -72,35 +72,62 @@ object MKKafkaConsumer extends Logging {
         df.rdd
     })
 
-    //Create State Updating function for mapWithState function
-    val finalStateSpec = StateSpec.function(basicInfoStateUpdate _)
-    val connectIDsStateSpec = StateSpec.function(iDsConnectStateUpdate _)
+    val sessionsStateSpec = StateSpec.function(sessionsStateUpdate _)
 
-    val idMapping = structuredMessages
-      .map(x=>(x.getAs[String]("_id"), (x.getAs[String]("uid"),Date.valueOf(x.getAs[DateType]("date").toString))))
-      .reduceByKey((a,b)=>{
-        val id = if (!a._1.isEmpty) a._1 else if (!b._1.isEmpty) b._1 else ""
-        val date = if (a._2.before(b._2)) a._2 else b._2
-        (id,date)
-      })
-      .filter(x=> !x._2._1.isEmpty)
-      //.mapWithState(connectIDsStateSpec)
+    val sessions = structuredMessages
+        .map(x=>(x.getAs[String]("_id"), (
+          x.getAs[String]("uid"),
+          Date.valueOf(x.getAs[DateType]("date").toString),
+          x.getAs[Long]("t"),
+          x.getAs[Long]("t")
+        )))
+        .reduceByKey((a,b)=>{
+          val userId = if (a._1.isEmpty) b._1 else a._1
+          val sDate = if(a._2.before(b._2))a._2 else b._2
+          val sTimestamp = math.min(a._3,b._3)
+          val eTimestamp = math.max(a._4,b._4)
+          (userId,sDate,sTimestamp,eTimestamp)
+        })
+        .mapWithState(sessionsStateSpec)
 
-    idMapping.print(1000)
+    sessions.print(1000)
+    val dataPointsStateSpec = StateSpec.function(dataPointsStateUpdate _)
 
-    structuredMessages
-      .map(x=>(x.getAs[String]("_id"),( x.getAs[String]("uid"),x.getAs[DateType]("date"))))
-      .leftOuterJoin(idMapping)
+    val dataPoints = sessions
       .map(x=>{
-        val id = if(!x._2._1._1.isEmpty) x._2._1 else if (x._2._2.isDefined) (x._2._2.get._1,x._2._1._2) else ("tmp_"+x._1,x._2._1._2)
-        val earliestDate = if(x._2._2.isDefined) x._2._2.get._2 else Date.valueOf(x._2._1._2.toString)
-        (id,earliestDate)
+        val combinedId = if(x._2._1.isEmpty) "tmp_"+x._1 else x._2._1
+        ((combinedId,x._2._2),(x._2._4-x._2._3,1L))
       })
-      .reduceByKey((a,b)=> if (a.before(b)) a else b)
-      //Produce stateful streaming, so when new message come, they are aggregated with previous results and only new stuff should be updated
-      .mapWithState(finalStateSpec)
-      //Debug print
-      .print(1000)
+      .reduceByKey((a,b)=>{
+        val sessionTime = a._1 + b._1
+        val sessionCount = a._2 + b._2
+        (sessionTime,sessionCount)
+      })
+      .mapWithState(dataPointsStateSpec)
+
+    dataPoints.print(1000)
+
+    val userAge = dataPoints
+      .map(x=>{
+        (x._1._1,x._1._2)
+      })
+      .reduceByKey((a,b)=>{
+        if (a.before(b)) a else b
+      })
+
+    val sessionsWithAge = dataPoints
+        .map(x=>{
+          (x._1._1,
+            (x._1._2,x._2._1,x._2._2)
+          )
+        })
+        .leftOuterJoin(userAge)
+        .map(x=>{(
+          (x._2._1._1,x._1),
+          (x._2._2.get,x._2._1._2,x._2._1._3)
+        )})
+
+    sessionsWithAge.print(1000)
 
     logInfo("start the computation...")
     ssc.start()
@@ -108,12 +135,19 @@ object MKKafkaConsumer extends Logging {
     logInfo("computation done!")
   }
 
-  def basicInfoStateUpdate(key:(String,DateType),value:Option[(Date)],state:State[Date]): ((String,DateType),Date) = {
+
+  def sessionsStateUpdate(key:String,value:Option[(String,Date,Long,Long)],state:State[(String,Date,Long,Long)]): (String,(String,Date,Long,Long)) = {
     val v = value.get
     if (state.exists()) {
       // For existing keys
       val currentSet = state.get()
-      state.update(if(currentSet.before(v)) currentSet else v)
+      val newSet = (
+        if(!currentSet._1.isEmpty) currentSet._1 else v._1,
+        if(currentSet._2.before(v._2)) currentSet._2 else v._2,
+        math.min(currentSet._3,v._3),
+        math.max(currentSet._4,v._4)
+      )
+      state.update(newSet)
       (key, state.get)
     } else {
       // For new keys
@@ -122,14 +156,14 @@ object MKKafkaConsumer extends Logging {
     }
   }
 
-  def iDsConnectStateUpdate(key:String,value:Option[(String,Date)],state:State[(String,Date)]): (String,(String,Date)) = {
+  def dataPointsStateUpdate(key:(String,Date),value:Option[(Long,Long)],state:State[(Long,Long)]): ((String,Date),(Long,Long)) = {
     val v = value.get
     if (state.exists()) {
       // For existing keys
       val currentSet = state.get()
       val newSet = (
-      if(!currentSet._1.isEmpty) currentSet._1 else v._1,
-      if(currentSet._2.before(v._2)) currentSet._2 else v._2
+        currentSet._1+v._1,
+        currentSet._2+v._2
       )
       state.update(newSet)
       (key, state.get)
