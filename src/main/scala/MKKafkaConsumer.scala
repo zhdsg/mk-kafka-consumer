@@ -5,6 +5,7 @@
 import kafka.log.Log
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.sql.Date
+
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming._
@@ -43,10 +44,7 @@ object MKKafkaConsumer extends Logging {
     val ssc = new StreamingContext(sparkConf, Seconds(2))
     //Because of updateStateByKey requires this
     ssc.checkpoint("/tmp/log-analyzer-streaming")
-    if(localDevEnv)
-      ssc.sparkContext.setLogLevel("ERROR")
-    else
-      ssc.sparkContext.setLogLevel("DEBUG")
+    ssc.sparkContext.setLogLevel("ERROR")
 
     // Create direct kafka stream with brokers and topics
     val stream = KafkaUtils.createDirectStream[String, String](
@@ -57,20 +55,27 @@ object MKKafkaConsumer extends Logging {
 
     //Filter out kafka metadata
     val messages = stream.map(_.value)
-    val structuredMessages = messages.transform(rdd=> {
+    val structuredMessages = messages
+      .transform(rdd=> {
       val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
       //Transform String rdd into structured DataFrame by parsing JSON
       import spark.implicits._
       val ds = spark.createDataset[String](rdd)
       val df = spark.read.json(ds)
 
-      //Check, because sometimes rdd is empty and then next operation has exception
-      if (df.columns.contains("t"))
-        //Add new column to DataFrame: DateType parsed from timestamp
-        df.withColumn("date", to_date(from_unixtime(df("t") / 1000))).rdd
-      else
+
+      if(rdd.isEmpty()){
         df.rdd
-    })
+      }else{
+      df
+        .filter(x => {
+          (x.getAs[Long]("t") != null) && (x.getAs[String]("uid") != null) && (x.getAs[String]("_id") != null)
+        })
+        //Add new column to DataFrame: DateType parsed from timestamp
+        .withColumn("date", to_date(from_unixtime(df("t") / 1000)))
+        .rdd
+      }})
+      .filter(row => row.length>0)
 
     val sessionsStateSpec = StateSpec.function(sessionsStateUpdate _)
 
@@ -78,8 +83,8 @@ object MKKafkaConsumer extends Logging {
         .map(x=>(x.getAs[String]("_id"), (
           x.getAs[String]("uid"),
           Date.valueOf(x.getAs[DateType]("date").toString),
-          x.getAs[Long]("t"),
-          x.getAs[Long]("t")
+          x.getAs[String]("t").toLong,
+          x.getAs[String]("t").toLong
         )))
         .reduceByKey((a,b)=>{
           val userId = if (a._1.isEmpty) b._1 else a._1
@@ -90,7 +95,7 @@ object MKKafkaConsumer extends Logging {
         })
         .mapWithState(sessionsStateSpec)
 
-    sessions.print(1000)
+    //sessions.print(1000)
     val dataPointsStateSpec = StateSpec.function(dataPointsStateUpdate _)
 
     val dataPoints = sessions
@@ -105,7 +110,7 @@ object MKKafkaConsumer extends Logging {
       })
       .mapWithState(dataPointsStateSpec)
 
-    dataPoints.print(1000)
+    //dataPoints.print(1000)
 
     val userAge = dataPoints
       .map(x=>{
