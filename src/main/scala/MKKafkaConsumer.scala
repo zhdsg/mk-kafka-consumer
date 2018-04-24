@@ -14,15 +14,16 @@ import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
 import com.typesafe.config.ConfigFactory
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession,Row}
 import org.apache.spark.sql.functions.{from_unixtime, to_date}
-import org.apache.spark.sql.types.DateType
+import org.apache.spark.sql.types._
 
 object MKKafkaConsumer extends Logging {
   def main(args: Array[String]) {
     val config = ConfigFactory.load()
     val localDevEnv = config.getBoolean("environment.localDev")
     val processFromStart = config.getBoolean("environment.processFromStart")
+    val permanentStorage = config.getString("environment.permanentStorage")
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
@@ -53,6 +54,25 @@ object MKKafkaConsumer extends Logging {
       Subscribe[String, String](topics, kafkaParams)
     )
 
+    val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf)
+
+    val schema = StructType(
+      StructField("date", DateType, true) ::
+      StructField("combinedId", StringType, true) ::
+      StructField("earliestDate", DateType, true) ::
+      StructField("sessionLength", LongType, true) ::
+      StructField("sessionCount", LongType, true) :: Nil
+    )
+
+
+    if(processFromStart) {
+      saveToPermanentStorage(
+        sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schema),
+        permanentStorage,
+        true
+      )
+    }
+
     //Filter out kafka metadata
     val messages = stream.map(_.value)
     val structuredMessages = messages
@@ -69,7 +89,7 @@ object MKKafkaConsumer extends Logging {
       }else{
       df
         .filter(x => {
-          (x.getAs[Long]("t") != null) && (x.getAs[String]("uid") != null) && (x.getAs[String]("_id") != null)
+          (x.getAs[Any]("t") != null) && (x.getAs[String]("uid") != null) && (x.getAs[String]("_id") != null)
         })
         //Add new column to DataFrame: DateType parsed from timestamp
         .withColumn("date", to_date(from_unixtime(df("t") / 1000)))
@@ -83,8 +103,8 @@ object MKKafkaConsumer extends Logging {
         .map(x=>(x.getAs[String]("_id"), (
           x.getAs[String]("uid"),
           Date.valueOf(x.getAs[DateType]("date").toString),
-          x.getAs[String]("t").toLong,
-          x.getAs[String]("t").toLong
+          x.getAs[Long]("t"),
+          x.getAs[Long]("t")
         )))
         .reduceByKey((a,b)=>{
           val userId = if (a._1.isEmpty) b._1 else a._1
@@ -128,9 +148,19 @@ object MKKafkaConsumer extends Logging {
         })
         .leftOuterJoin(userAge)
         .map(x=>{(
-          (x._2._1._1,x._1),
-          (x._2._2.get,x._2._1._2,x._2._1._3)
+          x._2._1._1,x._1,
+          x._2._2.get,x._2._1._2,x._2._1._3
         )})
+
+    sessionsWithAge
+      .foreachRDD(rdd=>{
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("date", "combinedId", "earliestDate", "sessionLength","sessionCount")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        saveToPermanentStorage(df,permanentStorage)
+        df.show(1000)
+        spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
+      })
 
     sessionsWithAge.print(1000)
 
@@ -177,6 +207,15 @@ object MKKafkaConsumer extends Logging {
       state.update(v)
       (key, v)
     }
+  }
+
+  def saveToPermanentStorage(dataFrame: DataFrame,file:String,overwrite:Boolean = false): Unit ={
+    val writer = dataFrame
+      .write
+      .format("parquet")
+      .partitionBy("date")
+    val writerMode = if(overwrite) writer.mode("overwrite") else writer.mode("append")
+    writerMode.save(file)
   }
 
 }
