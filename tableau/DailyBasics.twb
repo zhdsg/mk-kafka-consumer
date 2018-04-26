@@ -1,0 +1,709 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<!-- build 10500.18.0404.1406                               -->
+<workbook original-version='10.5' source-build='10.5.3 (10500.18.0404.1406)' source-platform='mac' version='10.5' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <preferences>
+    <preference name='ui.encoding.shelf.height' value='24' />
+    <preference name='ui.shelf.height' value='26' />
+  </preferences>
+  <datasources>
+    <datasource hasconnection='false' inline='true' name='Parameters' version='10.5'>
+      <aliases enabled='yes' />
+      <column caption='(X) in (X)AU' datatype='integer' name='[Parameter 1]' param-domain-type='range' role='measure' type='quantitative' value='30'>
+        <calculation class='tableau' formula='30' />
+        <range max='30' min='1' />
+      </column>
+    </datasource>
+    <datasource caption='custom_sql_query (default)' inline='true' name='federated.1hks70p1drfaqs1h63udh03pn4tr' version='10.5'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='localhost' name='spark.1l8axio1jpk41o1gt4ujk11bhs8z'>
+            <connection authentication='yes' authentication-type='2' class='spark' connection-type='3' dbname='' odbc-connect-string-extras='' one-time-sql='' port='10000' schema='default' server='localhost' sslcert='' sslmode='' transport-type='1' username=''>
+              <connection-customization class='spark' enabled='false' version='10.5'>
+                <vendor name='spark' />
+                <driver name='spark' />
+                <customizations>
+                  <customization name='CAP_AUTH_DB_IMPERSONATE' value='no' />
+                  <customization name='CAP_AUTH_KERBEROS_IMPERSONATE' value='no' />
+                  <customization name='CAP_CONNECT_STORED_PROCEDURE' value='no' />
+                  <customization name='CAP_CREATE_TEMP_TABLES' value='no' />
+                  <customization name='CAP_DATASERVER_MAGIC_NUMBER' value='no' />
+                  <customization name='CAP_DEFERS_CONNECTION_VERIFICATION' value='no' />
+                  <customization name='CAP_DISABLE_EXTRACT_TABLE_INDEXING' value='no' />
+                  <customization name='CAP_EQUIJOINS_ONLY' value='no' />
+                  <customization name='CAP_FAST_METADATA' value='no' />
+                  <customization name='CAP_GREENPLUM_TRUST_METADATA_CONTAINSNULL' value='no' />
+                  <customization name='CAP_HIVE_FIX_METADATA_NAMES' value='no' />
+                  <customization name='CAP_INDEX_TEMP_TABLES' value='no' />
+                  <customization name='CAP_INSERT_TEMP_EXEC_STORED_PROCEDURE' value='no' />
+                  <customization name='CAP_LOCAL_ALIASES_CASE_INSENSITIVE' value='no' />
+                  <customization name='CAP_ODBC_ALWAYS_THROW_CONNECT_ERRORS' value='no' />
+                  <customization name='CAP_ODBC_BIND_FORCE_DATETIME_AS_CHAR' value='no' />
+                  <customization name='CAP_ODBC_BIND_FORCE_DATE_AS_CHAR' value='no' />
+                  <customization name='CAP_ODBC_BIND_FORCE_MAX_STRING_BUFFERS' value='no' />
+                  <customization name='CAP_ODBC_BIND_FORCE_MEDIUM_STRING_BUFFERS' value='no' />
+                  <customization name='CAP_ODBC_BIND_FORCE_SIGNED' value='no' />
+                  <customization name='CAP_ODBC_BIND_FORCE_SMALL_STRING_BUFFERS' value='no' />
+                  <customization name='CAP_ODBC_BIND_SUPPRESS_INT64' value='no' />
+                  <customization name='CAP_ODBC_BIND_SUPPRESS_PREFERRED_TYPES' value='no' />
+                  <customization name='CAP_ODBC_BIND_SUPPRESS_WIDE_CHAR' value='no' />
+                  <customization name='CAP_ODBC_CURSOR_DYNAMIC' value='no' />
+                  <customization name='CAP_ODBC_CURSOR_FORWARD_ONLY' value='yes' />
+                  <customization name='CAP_ODBC_CURSOR_KEYSET_DRIVEN' value='no' />
+                  <customization name='CAP_ODBC_CURSOR_STATIC' value='no' />
+                  <customization name='CAP_ODBC_DRIVER_HIVE_ASSUME_LATEST' value='yes' />
+                  <customization name='CAP_ODBC_ERROR_IGNORE_FALSE_ALARM' value='no' />
+                  <customization name='CAP_ODBC_FETCH_BUFFERS_RESIZABLE' value='no' />
+                  <customization name='CAP_ODBC_FETCH_BUFFERS_SIZE_MASSIVE' value='no' />
+                  <customization name='CAP_ODBC_FETCH_CONTINUE_ON_ERROR' value='no' />
+                  <customization name='CAP_ODBC_FORCE_SINGLE_ROW_BINDING' value='no' />
+                  <customization name='CAP_ODBC_METADATA_STRING_LENGTH_UNKNOWN' value='no' />
+                  <customization name='CAP_ODBC_METADATA_SUPPRESS_SQLCOLUMNS_API' value='no' />
+                  <customization name='CAP_ODBC_METADATA_SUPPRESS_SQLFOREIGNKEYS_API' value='yes' />
+                  <customization name='CAP_ODBC_METADATA_SUPPRESS_SQLPRIMARYKEYS_API' value='no' />
+                  <customization name='CAP_ODBC_METADATA_SUPPRESS_SQLSTATISTICS_API' value='yes' />
+                  <customization name='CAP_ODBC_REBIND_SKIP_UNBIND' value='no' />
+                  <customization name='CAP_ODBC_TRIM_VARCHAR_PADDING' value='no' />
+                  <customization name='CAP_ODBC_UNBIND_AUTO' value='no' />
+                  <customization name='CAP_ODBC_UNBIND_BATCH' value='no' />
+                  <customization name='CAP_ODBC_UNBIND_EACH' value='yes' />
+                  <customization name='CAP_ODBC_USE_NATIVE_PROTOCOL' value='yes' />
+                  <customization name='CAP_QUERY_ALLOW_PARTIAL_AGGREGATION' value='yes' />
+                  <customization name='CAP_QUERY_ALWAYS_USE_AQ_CACHE' value='no' />
+                  <customization name='CAP_QUERY_BLENDING_ALWAYS_USE_LOCAL_MAPPING_TABLES' value='no' />
+                  <customization name='CAP_QUERY_BLENDING_PREFER_LOCAL_MAPPING_TABLES' value='yes' />
+                  <customization name='CAP_QUERY_BLENDING_REMOTE_MAPPING_TABLES' value='yes' />
+                  <customization name='CAP_QUERY_BOOLEXPR_TO_INTEXPR' value='no' />
+                  <customization name='CAP_QUERY_BOOL_IDENTIFIER_TO_LOGICAL' value='no' />
+                  <customization name='CAP_QUERY_EMPTY_DOMAIN_TOP' value='no' />
+                  <customization name='CAP_QUERY_FORCE_AGGREGATE_MEASURES' value='no' />
+                  <customization name='CAP_QUERY_GROUP_BY_ALIAS' value='no' />
+                  <customization name='CAP_QUERY_GROUP_BY_DEGREE' value='no' />
+                  <customization name='CAP_QUERY_HAVING_REQUIRES_GROUP_BY' value='no' />
+                  <customization name='CAP_QUERY_HAVING_UNSUPPORTED' value='no' />
+                  <customization name='CAP_QUERY_JOIN_ACROSS_SCHEMAS' value='yes' />
+                  <customization name='CAP_QUERY_JOIN_ASSUME_CONSTRAINED' value='no' />
+                  <customization name='CAP_QUERY_JOIN_PUSH_DOWN_CONDITION_EXPRESSIONS' value='no' />
+                  <customization name='CAP_QUERY_JOIN_REQUIRES_SCOPE' value='no' />
+                  <customization name='CAP_QUERY_JOIN_REQUIRES_SUBQUERY' value='no' />
+                  <customization name='CAP_QUERY_NULL_REQUIRES_CAST' value='yes' />
+                  <customization name='CAP_QUERY_RECOMPILE_FAILED_QUERY' value='no' />
+                  <customization name='CAP_QUERY_SELECT_ALIASES_SORTED' value='no' />
+                  <customization name='CAP_QUERY_SORT_BY' value='yes' />
+                  <customization name='CAP_QUERY_SORT_BY_DEGREE' value='no' />
+                  <customization name='CAP_QUERY_SUBQUERIES' value='yes' />
+                  <customization name='CAP_QUERY_SUBQUERIES_WITH_TOP' value='yes' />
+                  <customization name='CAP_QUERY_SUBQUERY_QUERY_CONTEXT' value='yes' />
+                  <customization name='CAP_QUERY_SUPPORTS_LODJOINS' value='yes' />
+                  <customization name='CAP_QUERY_SUPPRESS_CHECK_DOMAIN_LITERALS_THRESHOLD' value='no' />
+                  <customization name='CAP_QUERY_SUPPRESS_NULL_CHECK_QUERIES' value='no' />
+                  <customization name='CAP_QUERY_TOPSTYLE_LIMIT' value='no' />
+                  <customization name='CAP_QUERY_TOPSTYLE_ROWNUM' value='no' />
+                  <customization name='CAP_QUERY_TOPSTYLE_TOP' value='no' />
+                  <customization name='CAP_QUERY_TOP_0_METADATA' value='yes' />
+                  <customization name='CAP_QUERY_TOP_N' value='yes' />
+                  <customization name='CAP_QUERY_USE_DOMAIN_RANGES_OPTIMIZATION' value='yes' />
+                  <customization name='CAP_QUERY_USE_QUERY_FUSION' value='yes' />
+                  <customization name='CAP_QUERY_WHERE_FALSE_METADATA' value='no' />
+                  <customization name='CAP_SELECT_INTO' value='no' />
+                  <customization name='CAP_SELECT_TOP_INTO' value='no' />
+                  <customization name='CAP_STORED_PROCEDURE_PREFER_TEMP_TABLE' value='no' />
+                  <customization name='CAP_STORED_PROCEDURE_REPAIR_TEMP_TABLE_STRINGS' value='no' />
+                  <customization name='CAP_STORED_PROCEDURE_TEMP_TABLE_FROM_BUFFER' value='no' />
+                  <customization name='CAP_STORED_PROCEDURE_TEMP_TABLE_FROM_NEW_PROTOCOL' value='no' />
+                  <customization name='CAP_SUPPRESS_CONNECTION_POOLING' value='yes' />
+                  <customization name='CAP_SUPPRESS_DISCOVERY_QUERIES' value='no' />
+                  <customization name='CAP_SUPPRESS_GET_SERVER_TIME' value='yes' />
+                  <customization name='CAP_SUPPRESS_QUICK_FILTER_ACCELERATION_VIEWS' value='no' />
+                </customizations>
+              </connection-customization>
+            </connection>
+          </named-connection>
+        </named-connections>
+        <relation connection='spark.1l8axio1jpk41o1gt4ujk11bhs8z' name='custom_sql_query' type='text'>SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`sessions.parquet` GROUP BY date, combinedId</relation>
+        <metadata-records>
+          <metadata-record class='column'>
+            <remote-name>date</remote-name>
+            <remote-type>7</remote-type>
+            <local-name>[date]</local-name>
+            <parent-name>[custom_sql_query]</parent-name>
+            <remote-alias>date</remote-alias>
+            <ordinal>1</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;SQL_TYPE_DATE&quot;</attribute>
+              <attribute datatype='string' name='DebugWireType'>&quot;SQL_C_TYPE_DATE&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>combinedId</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[combinedId]</local-name>
+            <parent-name>[custom_sql_query]</parent-name>
+            <remote-alias>combinedId</remote-alias>
+            <ordinal>2</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <width>255</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='binary' />
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;SQL_VARCHAR&quot;</attribute>
+              <attribute datatype='string' name='DebugWireType'>&quot;SQL_C_CHAR&quot;</attribute>
+              <attribute datatype='string' name='TypeIsVarchar'>&quot;true&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>earliestDate</remote-name>
+            <remote-type>7</remote-type>
+            <local-name>[earliestDate]</local-name>
+            <parent-name>[custom_sql_query]</parent-name>
+            <remote-alias>earliestDate</remote-alias>
+            <ordinal>3</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;SQL_TYPE_DATE&quot;</attribute>
+              <attribute datatype='string' name='DebugWireType'>&quot;SQL_C_TYPE_DATE&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>sessionLength</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[sessionLength]</local-name>
+            <parent-name>[custom_sql_query]</parent-name>
+            <remote-alias>sessionLength</remote-alias>
+            <ordinal>4</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <precision>19</precision>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;SQL_BIGINT&quot;</attribute>
+              <attribute datatype='string' name='DebugWireType'>&quot;SQL_C_SBIGINT&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>sessionCount</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[sessionCount]</local-name>
+            <parent-name>[custom_sql_query]</parent-name>
+            <remote-alias>sessionCount</remote-alias>
+            <ordinal>5</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <precision>19</precision>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;SQL_BIGINT&quot;</attribute>
+              <attribute datatype='string' name='DebugWireType'>&quot;SQL_C_SBIGINT&quot;</attribute>
+            </attributes>
+          </metadata-record>
+        </metadata-records>
+      </connection>
+      <aliases enabled='yes' />
+      <column caption='WeekAgo' datatype='datetime' name='[Calculation_1103381968532455427]' role='dimension' type='ordinal'>
+        <calculation class='tableau' formula='DATEADD(&apos;day&apos;,-7,[date])' />
+      </column>
+      <column caption='In window' datatype='integer' name='[Calculation_1103381968548990984]' role='measure' type='quantitative'>
+        <calculation class='tableau' formula='WINDOW_MAX(SUM(1),1-[Parameters].[Parameter 1],0)'>
+          <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[date]' ordering-type='Field' />
+        </calculation>
+      </column>
+      <column caption='XAU' datatype='integer' name='[Calculation_1668020772302819332]' role='measure' type='quantitative'>
+        <calculation class='tableau' formula='IF FIRST()==0 THEN&#10;WINDOW_SUM([Calculation_1103381968548990984],0,IF FIRST()==0 THEN LAST() ELSE 0 END)&#10;END'>
+          <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+        </calculation>
+      </column>
+      <column caption='Densification' datatype='integer' name='[Calculation_1668020772473065489]' role='measure' type='quantitative'>
+        <calculation class='tableau' formula='INDEX()'>
+          <table-calc ordering-type='Rows' />
+        </calculation>
+      </column>
+      <column caption='IsFirst' datatype='boolean' name='[Calculation_1668020772496224274]' role='measure' type='nominal'>
+        <calculation class='tableau' formula='FIRST()==0'>
+          <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+        </calculation>
+      </column>
+      <column caption='UniqueUsers' datatype='integer' name='[Calculation_1668020772535058451]' role='measure' type='quantitative'>
+        <calculation class='tableau' formula='COUNTD([combinedId])' />
+      </column>
+      <column datatype='integer' name='[Number of Records]' role='measure' type='quantitative' user:auto-column='numrec'>
+        <calculation class='tableau' formula='1' />
+      </column>
+      <column datatype='string' name='[combinedId]' role='dimension' type='nominal' />
+      <column datatype='date' name='[date]' role='dimension' type='ordinal' />
+      <column datatype='integer' name='[sessionCount]' role='measure' type='quantitative' />
+      <column datatype='integer' name='[sessionLength]' role='measure' type='quantitative' />
+      <column-instance column='[combinedId]' derivation='CountD' name='[ctd:combinedId:qk]' pivot='key' type='quantitative' />
+      <column-instance column='[Number of Records]' derivation='Sum' name='[sum:Number of Records:qk]' pivot='key' type='quantitative' />
+      <column-instance column='[sessionCount]' derivation='Sum' name='[sum:sessionCount:qk]' pivot='key' type='quantitative' />
+      <column-instance column='[sessionLength]' derivation='Sum' name='[sum:sessionLength:qk]' pivot='key' type='quantitative' />
+      <column-instance column='[Calculation_1103381968548990984]' derivation='User' name='[usr:Calculation_1103381968548990984:qk]' pivot='key' type='quantitative'>
+        <table-calc ordering-type='Rows' />
+      </column-instance>
+      <group name='[date &amp; combinedId (Combined)]' name-style='unqualified' user:ui-builder='nest-group'>
+        <groupfilter function='crossjoin'>
+          <groupfilter function='level-members' level='[date]' />
+          <groupfilter function='level-members' level='[combinedId]' />
+        </groupfilter>
+      </group>
+      <layout dim-ordering='alphabetic' dim-percentage='0.51606' measure-ordering='alphabetic' measure-percentage='0.43469' parameter-percentage='0.0492505' show-structure='true' />
+      <style>
+        <style-rule element='mark'>
+          <encoding attr='color' field='[:Measure Names]' type='palette'>
+            <map to='#4e79a7'>
+              <bucket>&quot;[federated.1hks70p1drfaqs1h63udh03pn4tr].[sum:Number of Records:qk]&quot;</bucket>
+            </map>
+            <map to='#59a14f'>
+              <bucket>&quot;[federated.1hks70p1drfaqs1h63udh03pn4tr].[ctd:combinedId:qk]&quot;</bucket>
+            </map>
+            <map to='#59a14f'>
+              <bucket>&quot;[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1103381968548990984:qk]&quot;</bucket>
+            </map>
+            <map to='#76b7b2'>
+              <bucket>&quot;[federated.1hks70p1drfaqs1h63udh03pn4tr]&quot;</bucket>
+            </map>
+            <map to='#e15759'>
+              <bucket>&quot;[federated.1hks70p1drfaqs1h63udh03pn4tr].[sum:sessionLength:qk]&quot;</bucket>
+            </map>
+            <map to='#f28e2b'>
+              <bucket>&quot;[federated.1hks70p1drfaqs1h63udh03pn4tr].[sum:sessionCount:qk]&quot;</bucket>
+            </map>
+          </encoding>
+        </style-rule>
+      </style>
+      <semantic-values>
+        <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
+      </semantic-values>
+      <datasource-dependencies datasource='Parameters'>
+        <column caption='(X) in (X)AU' datatype='integer' name='[Parameter 1]' param-domain-type='range' role='measure' type='quantitative' value='30'>
+          <calculation class='tableau' formula='30' />
+          <range max='30' min='1' />
+        </column>
+      </datasource-dependencies>
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='(X)AU Chart'>
+      <layout-options>
+        <title>
+          <formatted-text>
+            <run>(X)AU - Number of unique users in (X) last days</run>
+          </formatted-text>
+        </title>
+      </layout-options>
+      <table>
+        <view>
+          <datasources>
+            <datasource caption='custom_sql_query (default)' name='federated.1hks70p1drfaqs1h63udh03pn4tr' />
+            <datasource name='Parameters' />
+          </datasources>
+          <datasource-dependencies datasource='Parameters'>
+            <column caption='(X) in (X)AU' datatype='integer' name='[Parameter 1]' param-domain-type='range' role='measure' type='quantitative' value='30'>
+              <calculation class='tableau' formula='30' />
+              <range max='30' min='1' />
+            </column>
+          </datasource-dependencies>
+          <datasource-dependencies datasource='federated.1hks70p1drfaqs1h63udh03pn4tr'>
+            <column caption='In window' datatype='integer' name='[Calculation_1103381968548990984]' role='measure' type='quantitative'>
+              <calculation class='tableau' formula='WINDOW_MAX(SUM(1),1-[Parameters].[Parameter 1],0)'>
+                <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[date]' ordering-type='Field' />
+              </calculation>
+            </column>
+            <column caption='XAU' datatype='integer' name='[Calculation_1668020772302819332]' role='measure' type='quantitative'>
+              <calculation class='tableau' formula='IF FIRST()==0 THEN&#10;WINDOW_SUM([Calculation_1103381968548990984],0,IF FIRST()==0 THEN LAST() ELSE 0 END)&#10;END'>
+                <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+              </calculation>
+            </column>
+            <column caption='IsFirst' datatype='boolean' name='[Calculation_1668020772496224274]' role='measure' type='nominal'>
+              <calculation class='tableau' formula='FIRST()==0'>
+                <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+              </calculation>
+            </column>
+            <column datatype='string' name='[combinedId]' role='dimension' type='nominal' />
+            <column datatype='date' name='[date]' role='dimension' type='ordinal' />
+            <column-instance column='[combinedId]' derivation='None' name='[none:combinedId:nk]' pivot='key' type='nominal' />
+            <column-instance column='[date]' derivation='None' name='[none:date:ok]' pivot='key' type='ordinal' />
+            <column-instance column='[Calculation_1668020772302819332]' derivation='User' name='[usr:Calculation_1668020772302819332:qk:10]' pivot='key' type='quantitative'>
+              <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+              <table-calc field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[Calculation_1103381968548990984]' ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[date]' ordering-type='Field' />
+            </column-instance>
+            <column-instance column='[Calculation_1668020772496224274]' derivation='User' name='[usr:Calculation_1668020772496224274:nk:2]' pivot='key' type='nominal'>
+              <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+            </column-instance>
+          </datasource-dependencies>
+          <filter class='categorical' column='[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk:2]'>
+            <groupfilter function='member' level='[usr:Calculation_1668020772496224274:nk:2]' member='true' user:ui-domain='relevant' user:ui-enumeration='inclusive' user:ui-marker='enumerate' />
+          </filter>
+          <slices>
+            <column>[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk:2]</column>
+          </slices>
+          <aggregation value='true' />
+        </view>
+        <style>
+          <style-rule element='cell'>
+            <format attr='height' field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]' value='19' />
+            <format attr='width' field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:ok]' value='131' />
+          </style-rule>
+          <style-rule element='header'>
+            <format attr='width' field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]' value='136' />
+          </style-rule>
+          <style-rule element='label'>
+            <format attr='display' field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]' value='false' />
+          </style-rule>
+        </style>
+        <panes>
+          <pane id='8' selection-relaxation-option='selection-relaxation-allow'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Line' />
+            <style>
+              <style-rule element='mark'>
+                <format attr='mark-labels-cull' value='true' />
+                <format attr='mark-labels-show' value='false' />
+              </style-rule>
+              <style-rule element='pane'>
+                <format attr='minheight' value='-1' />
+                <format attr='maxheight' value='-1' />
+                <format attr='minheight' value='-1' />
+                <format attr='maxheight' value='-1' />
+                <format attr='minwidth' value='-1' />
+                <format attr='maxwidth' value='-1' />
+              </style-rule>
+            </style>
+          </pane>
+        </panes>
+        <rows>([federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk] * [federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772302819332:qk:10])</rows>
+        <cols>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:ok]</cols>
+        <show-full-range>
+          <column>[federated.1hks70p1drfaqs1h63udh03pn4tr].[date]</column>
+        </show-full-range>
+      </table>
+    </worksheet>
+    <worksheet name='(X)AU Table'>
+      <layout-options>
+        <title>
+          <formatted-text>
+            <run>(X)AU</run>
+          </formatted-text>
+        </title>
+      </layout-options>
+      <table>
+        <view>
+          <datasources>
+            <datasource caption='custom_sql_query (default)' name='federated.1hks70p1drfaqs1h63udh03pn4tr' />
+            <datasource name='Parameters' />
+          </datasources>
+          <datasource-dependencies datasource='Parameters'>
+            <column caption='(X) in (X)AU' datatype='integer' name='[Parameter 1]' param-domain-type='range' role='measure' type='quantitative' value='30'>
+              <calculation class='tableau' formula='30' />
+              <range max='30' min='1' />
+            </column>
+          </datasource-dependencies>
+          <datasource-dependencies datasource='federated.1hks70p1drfaqs1h63udh03pn4tr'>
+            <column caption='In window' datatype='integer' name='[Calculation_1103381968548990984]' role='measure' type='quantitative'>
+              <calculation class='tableau' formula='WINDOW_MAX(SUM(1),1-[Parameters].[Parameter 1],0)'>
+                <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[date]' ordering-type='Field' />
+              </calculation>
+            </column>
+            <column caption='XAU' datatype='integer' name='[Calculation_1668020772302819332]' role='measure' type='quantitative'>
+              <calculation class='tableau' formula='IF FIRST()==0 THEN&#10;WINDOW_SUM([Calculation_1103381968548990984],0,IF FIRST()==0 THEN LAST() ELSE 0 END)&#10;END'>
+                <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+              </calculation>
+            </column>
+            <column caption='IsFirst' datatype='boolean' name='[Calculation_1668020772496224274]' role='measure' type='nominal'>
+              <calculation class='tableau' formula='FIRST()==0'>
+                <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+              </calculation>
+            </column>
+            <column datatype='string' name='[combinedId]' role='dimension' type='nominal' />
+            <column datatype='date' name='[date]' role='dimension' type='ordinal' />
+            <column-instance column='[combinedId]' derivation='None' name='[none:combinedId:nk]' pivot='key' type='nominal' />
+            <column-instance column='[date]' derivation='None' name='[none:date:ok]' pivot='key' type='ordinal' />
+            <column-instance column='[Calculation_1668020772302819332]' derivation='User' name='[usr:Calculation_1668020772302819332:qk:10]' pivot='key' type='quantitative'>
+              <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+              <table-calc field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[Calculation_1103381968548990984]' ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[date]' ordering-type='Field' />
+            </column-instance>
+            <column-instance column='[Calculation_1668020772496224274]' derivation='User' name='[usr:Calculation_1668020772496224274:nk:2]' pivot='key' type='nominal'>
+              <table-calc ordering-field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[combinedId]' ordering-type='Field' />
+            </column-instance>
+          </datasource-dependencies>
+          <filter class='categorical' column='[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk:2]'>
+            <groupfilter function='member' level='[usr:Calculation_1668020772496224274:nk:2]' member='true' user:ui-domain='relevant' user:ui-enumeration='inclusive' user:ui-marker='enumerate' />
+          </filter>
+          <slices>
+            <column>[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk:2]</column>
+          </slices>
+          <aggregation value='true' />
+        </view>
+        <style>
+          <style-rule element='cell'>
+            <format attr='height' field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]' value='19' />
+            <format attr='width' field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:ok]' value='131' />
+          </style-rule>
+          <style-rule element='header'>
+            <format attr='width' field='[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]' value='136' />
+          </style-rule>
+        </style>
+        <panes>
+          <pane id='8' selection-relaxation-option='selection-relaxation-allow'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Text' />
+            <encodings>
+              <text column='[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772302819332:qk:10]' />
+            </encodings>
+            <style>
+              <style-rule element='mark'>
+                <format attr='mark-labels-cull' value='true' />
+                <format attr='mark-labels-show' value='true' />
+              </style-rule>
+              <style-rule element='pane'>
+                <format attr='minheight' value='-1' />
+                <format attr='maxheight' value='-1' />
+                <format attr='minheight' value='-1' />
+                <format attr='maxheight' value='-1' />
+                <format attr='minwidth' value='-1' />
+                <format attr='maxwidth' value='-1' />
+              </style-rule>
+            </style>
+          </pane>
+        </panes>
+        <rows>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]</rows>
+        <cols>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:ok]</cols>
+        <show-full-range>
+          <column>[federated.1hks70p1drfaqs1h63udh03pn4tr].[date]</column>
+        </show-full-range>
+      </table>
+    </worksheet>
+  </worksheets>
+  <windows source-height='30'>
+    <window class='worksheet' name='(X)AU Table'>
+      <cards>
+        <edge name='left'>
+          <strip size='160'>
+            <card type='pages' />
+            <card type='filters' />
+            <card type='marks' />
+          </strip>
+        </edge>
+        <edge name='top'>
+          <strip size='2147483647'>
+            <card type='columns' />
+          </strip>
+          <strip size='2147483647'>
+            <card type='rows' />
+          </strip>
+          <strip size='31'>
+            <card type='title' />
+          </strip>
+        </edge>
+        <edge name='right'>
+          <strip size='160'>
+            <card mode='type_in' param='[Parameters].[Parameter 1]' type='parameter' />
+          </strip>
+        </edge>
+      </cards>
+      <viewpoint>
+        <highlight>
+          <color-one-way>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[:Measure Names]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[cum:usr:Calculation_1668020772302819332:ok:1]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[date &amp; combinedId (Combined)]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:Calculation_1103381968532455427:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:qk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[tdy:date:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[tdy:date:qk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk:2]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[yr:Calculation_1103381968532455427:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[yr:Calculation_1103381968550518793:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[yr:date:ok]</field>
+          </color-one-way>
+        </highlight>
+      </viewpoint>
+    </window>
+    <window class='worksheet' maximized='true' name='(X)AU Chart'>
+      <cards>
+        <edge name='left'>
+          <strip size='160'>
+            <card type='pages' />
+            <card type='filters' />
+            <card type='marks' />
+          </strip>
+        </edge>
+        <edge name='top'>
+          <strip size='2147483647'>
+            <card type='columns' />
+          </strip>
+          <strip size='2147483647'>
+            <card type='rows' />
+          </strip>
+          <strip size='31'>
+            <card type='title' />
+          </strip>
+        </edge>
+        <edge name='right'>
+          <strip size='108'>
+            <card mode='type_in' param='[Parameters].[Parameter 1]' type='parameter' />
+          </strip>
+        </edge>
+      </cards>
+      <viewpoint>
+        <highlight>
+          <color-one-way>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[:Measure Names]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[cum:usr:Calculation_1668020772302819332:ok:1]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[date &amp; combinedId (Combined)]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:Calculation_1103381968532455427:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:combinedId:nk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[none:date:qk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[tdy:date:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[tdy:date:qk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk:2]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[usr:Calculation_1668020772496224274:nk]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[yr:Calculation_1103381968532455427:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[yr:Calculation_1103381968550518793:ok]</field>
+            <field>[federated.1hks70p1drfaqs1h63udh03pn4tr].[yr:date:ok]</field>
+          </color-one-way>
+        </highlight>
+      </viewpoint>
+    </window>
+  </windows>
+  <thumbnails>
+    <thumbnail height='192' name='(X)AU Chart' width='192'>
+      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
+    </thumbnail>
+    <thumbnail height='63' name='(X)AU Table' width='192'>
+      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
+      TF7/ATh5ynb4z4eDAAAAAElFTkSuQmCC
+    </thumbnail>
+  </thumbnails>
+</workbook>

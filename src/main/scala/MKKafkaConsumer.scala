@@ -84,7 +84,7 @@ object MKKafkaConsumer extends Logging {
       val df = spark.read.json(ds)
 
 
-      if(rdd.isEmpty()){
+      if(rdd.isEmpty() || !df.columns.contains("t") || !df.columns.contains("uid") || !df.columns.contains("uid")){
         df.rdd
       }else{
       df
@@ -162,7 +162,7 @@ object MKKafkaConsumer extends Logging {
         spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
       })
 
-    sessionsWithAge.print(1000)
+    //sessionsWithAge.print(1000)
 
     logInfo("start the computation...")
     ssc.start()
