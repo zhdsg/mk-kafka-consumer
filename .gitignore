@@ -2,3 +2,10 @@
 target
 project/project
 project/target
+tmp/
+.DS_Store
+derby.log
+metastore_db/
+sessions.parquet/
+spark-warehouse/
+/tableau/.~*

@@ -47,18 +47,3 @@ object SparkTest extends Logging  {
 case class Record(uid:String,e_c: String,e_a:String,e_n:String,e_v:String,t:Timestamp)
 
 
-/** Lazily instantiated singleton instance of SparkSession */
-object SparkSessionSingleton {
-
-  @transient  private var instance: SparkSession = _
-
-  def getInstance(sparkConf: SparkConf): SparkSession = {
-    if (instance == null) {
-      instance = SparkSession
-        .builder
-        .config(sparkConf)
-        .getOrCreate()
-    }
-    instance
-  }
-}
