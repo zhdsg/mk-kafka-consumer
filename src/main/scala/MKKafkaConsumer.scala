@@ -2,8 +2,6 @@
   * Created by raven on 29/03/2018.
   */
 
-import kafka.log.Log
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import java.sql.Date
 import java.util.Properties
@@ -23,7 +21,7 @@ import scala.util.parsing.json.JSONObject
 
 object MKKafkaConsumer extends Logging {
 
-  @transient  private var kafkaBackupProducer: KafkaProducer[String,String] = null
+  @transient  private var kafkaBackupProducer: KafkaProducer[String,String] = _
 
   def main(args: Array[String]) {
     val config = ConfigFactory.load()
@@ -65,18 +63,18 @@ object MKKafkaConsumer extends Logging {
     val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf)
 
     val schema = StructType(
-      StructField("date", DateType, true) ::
-      StructField("combinedId", StringType, true) ::
-      StructField("earliestDate", DateType, true) ::
-      StructField("sessionLength", LongType, true) ::
-      StructField("sessionCount", LongType, true) :: Nil
+      StructField("date", DateType, nullable = true) ::
+      StructField("combinedId", StringType, nullable = true) ::
+      StructField("earliestDate", DateType, nullable = true) ::
+      StructField("sessionLength", LongType, nullable = true) ::
+      StructField("sessionCount", LongType, nullable = true) :: Nil
     )
 
     if(processFromStart) {
       saveToPermanentStorage(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schema),
         permanentStorage,
-        true
+        overwrite = true
       )
     }
 
