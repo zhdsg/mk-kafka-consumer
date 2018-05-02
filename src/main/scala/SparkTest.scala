@@ -33,8 +33,7 @@ object SparkTest extends Logging  {
         df.show()
 
         logInfo("about to write to mysql!")
-        df.write.mode("append")
-          .jdbc("jdbc:mysql://10.10.100.2:3306/erpstatsdev?useUnicode=true&characterEncoding=UTF-8", "MK_action", connectionProperties)
+        PersistenceHelper.saveToMysql(df,false)
       }
       else{
         logInfo("got empty rdd!")
