@@ -7,6 +7,7 @@ version := "1.0"
 scalaVersion := "2.11.12"
 
 val sparkVersion = "2.2.0"
+
 if(localDev){
   libraryDependencies ++= Seq(
     "org.apache.spark" %% "spark-core" % sparkVersion,
@@ -24,6 +25,7 @@ if(localDev){
     "com.typesafe" % "config" % "1.3.3"
   )
 }
+
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
 {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard

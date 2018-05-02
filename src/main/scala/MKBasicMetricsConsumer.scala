@@ -2,26 +2,22 @@
   * Created by raven on 29/03/2018.
   */
 
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import java.sql.Date
-import java.util.Properties
 
+import java.sql.Date
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming._
-import org.apache.spark.streaming.kafka010._
-import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
 import com.typesafe.config.ConfigFactory
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.{from_unixtime, to_date}
 import org.apache.spark.sql.types._
-import scala.util.parsing.json.JSONObject
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+import org.apache.spark.streaming.kafka010._
 
-object MKKafkaConsumer extends Logging {
+object MKBasicMetricsConsumer extends Logging {
 
-  @transient  private var kafkaBackupProducer: KafkaProducer[String,String] = _
 
   def main(args: Array[String]) {
     val config = ConfigFactory.load()
@@ -39,8 +35,8 @@ object MKKafkaConsumer extends Logging {
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
-    val configedTopic = config.getString("kafka.topic")
-    val topics = Array(configedTopic)
+    val configuredTopic = config.getString("kafka.topic")
+    val topics = Array(configuredTopic)
 
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
@@ -71,7 +67,7 @@ object MKKafkaConsumer extends Logging {
     )
 
     if(processFromStart) {
-      saveToPermanentStorage(
+      PersistenceHelper.saveToParquetStorage(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schema),
         permanentStorage,
         overwrite = true
@@ -162,8 +158,8 @@ object MKKafkaConsumer extends Logging {
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
         val columns = Seq("date", "combinedId", "earliestDate", "sessionLength","sessionCount")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
-        saveToPermanentStorage(df,permanentStorage)
-        produceBackupToKafka(backupKafkaTopic,df.collect())
+        PersistenceHelper.saveToParquetStorage(df,permanentStorage)
+        KafkaBackupProducerHelper.produce(backupKafkaTopic,df.collect())
         spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
       })
 
@@ -214,46 +210,5 @@ object MKKafkaConsumer extends Logging {
     }
   }
 
-  def saveToPermanentStorage(dataFrame: DataFrame,file:String,overwrite:Boolean = false): Unit ={
-    val writer = dataFrame
-      .write
-      .format("parquet")
-      .partitionBy("date")
-    val writerMode = if(overwrite) writer.mode("overwrite") else writer.mode("append")
-    writerMode.save(file)
-  }
 
-  def produceBackupToKafka(topic:String,messages:Array[Row]): Unit ={
-    if(kafkaBackupProducer==null){
-      val config = ConfigFactory.load()
-      val localDevEnv = config.getBoolean("environment.localDev")
-      val kafkaBackupProducerParams = new Properties()
-      kafkaBackupProducerParams.put("bootstrap.servers", if (localDevEnv) "localhost:9092" else "10.10.100.11:9092")
-      kafkaBackupProducerParams.put("client.id", "MKKafkaConsumer")
-      kafkaBackupProducerParams.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-      kafkaBackupProducerParams.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-
-      kafkaBackupProducer = new KafkaProducer[String, String](kafkaBackupProducerParams)
-    }
-    for(row<-messages) {
-      val message = JSONObject(row.getValuesMap(row.schema.fieldNames)).toString()
-      kafkaBackupProducer.send(new ProducerRecord[String, String](topic, message))
-    }
-  }
-
-}
-
-object SparkSessionSingleton {
-
-  @transient  private var instance: SparkSession = _
-
-  def getInstance(sparkConf: SparkConf): SparkSession = {
-    if (instance == null) {
-      instance = SparkSession
-        .builder
-        .config(sparkConf)
-        .getOrCreate()
-    }
-    instance
-  }
 }
