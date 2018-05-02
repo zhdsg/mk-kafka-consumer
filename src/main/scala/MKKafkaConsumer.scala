@@ -4,7 +4,9 @@
 
 import kafka.log.Log
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import java.sql.Date
+import java.util.Properties
 
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
@@ -14,16 +16,21 @@ import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
 import com.typesafe.config.ConfigFactory
-import org.apache.spark.sql.{DataFrame, SparkSession,Row}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.functions.{from_unixtime, to_date}
 import org.apache.spark.sql.types._
+import scala.util.parsing.json.JSONObject
 
 object MKKafkaConsumer extends Logging {
+
+  @transient  private var kafkaBackupProducer: KafkaProducer[String,String] = null
+
   def main(args: Array[String]) {
     val config = ConfigFactory.load()
     val localDevEnv = config.getBoolean("environment.localDev")
     val processFromStart = config.getBoolean("environment.processFromStart")
     val permanentStorage = config.getString("environment.permanentStorage")
+    val backupKafkaTopic = config.getString("environment.backupKafkaTopic")
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
@@ -47,6 +54,7 @@ object MKKafkaConsumer extends Logging {
     ssc.checkpoint("/tmp/log-analyzer-streaming")
     ssc.sparkContext.setLogLevel("ERROR")
 
+
     // Create direct kafka stream with brokers and topics
     val stream = KafkaUtils.createDirectStream[String, String](
       ssc,
@@ -63,7 +71,6 @@ object MKKafkaConsumer extends Logging {
       StructField("sessionLength", LongType, true) ::
       StructField("sessionCount", LongType, true) :: Nil
     )
-
 
     if(processFromStart) {
       saveToPermanentStorage(
@@ -158,7 +165,7 @@ object MKKafkaConsumer extends Logging {
         val columns = Seq("date", "combinedId", "earliestDate", "sessionLength","sessionCount")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         saveToPermanentStorage(df,permanentStorage)
-        df.show(1000)
+        produceBackupToKafka(backupKafkaTopic,df.collect())
         spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
       })
 
@@ -216,6 +223,24 @@ object MKKafkaConsumer extends Logging {
       .partitionBy("date")
     val writerMode = if(overwrite) writer.mode("overwrite") else writer.mode("append")
     writerMode.save(file)
+  }
+
+  def produceBackupToKafka(topic:String,messages:Array[Row]): Unit ={
+    if(kafkaBackupProducer==null){
+      val config = ConfigFactory.load()
+      val localDevEnv = config.getBoolean("environment.localDev")
+      val kafkaBackupProducerParams = new Properties()
+      kafkaBackupProducerParams.put("bootstrap.servers", if (localDevEnv) "localhost:9092" else "10.10.100.11:9092")
+      kafkaBackupProducerParams.put("client.id", "MKKafkaConsumer")
+      kafkaBackupProducerParams.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+      kafkaBackupProducerParams.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+
+      kafkaBackupProducer = new KafkaProducer[String, String](kafkaBackupProducerParams)
+    }
+    for(row<-messages) {
+      val message = JSONObject(row.getValuesMap(row.schema.fieldNames)).toString()
+      kafkaBackupProducer.send(new ProducerRecord[String, String](topic, message))
+    }
   }
 
 }
