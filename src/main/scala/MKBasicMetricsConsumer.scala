@@ -85,7 +85,7 @@ object MKBasicMetricsConsumer extends Logging {
       val df = spark.read.json(ds)
 
 
-      if(rdd.isEmpty() || !df.columns.contains("t") || !df.columns.contains("uid") || !df.columns.contains("uid")){
+      if(rdd.isEmpty() || !df.columns.contains("t") || !df.columns.contains("uid") || !df.columns.contains("_id")){
         df.rdd
       }else{
       df
