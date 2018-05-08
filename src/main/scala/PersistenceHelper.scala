@@ -16,12 +16,12 @@ object PersistenceHelper {
   connectionProperties.put("user", mysqlUser)
   connectionProperties.put("password", mysqlPass)
 
-  def saveToParquetStorage(dataFrame: DataFrame, file: String, overwrite: Boolean = false): Unit = {
+  def saveToParquetStorage(dataFrame: DataFrame, file: String, partitionBy:String = null, overwrite: Boolean = false): Unit = {
     val writer = dataFrame
       .write
       .format("parquet")
-      .partitionBy("date")
-    val writerMode = if (overwrite) writer.mode("overwrite") else writer.mode("append")
+    val writerPartitioned = if(partitionBy == null) writer else writer.partitionBy(partitionBy)
+    val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
     writerMode.save(file)
   }
   def saveToMysql(dataFrame: DataFrame,overwrite:Boolean=false):Unit={

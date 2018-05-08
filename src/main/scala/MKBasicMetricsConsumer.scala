@@ -24,7 +24,7 @@ object MKBasicMetricsConsumer extends Logging {
     val localDevEnv = config.getBoolean("environment.localDev")
     val processFromStart = config.getBoolean("environment.processFromStart")
     val permanentStorage = config.getString("environment.permanentStorage")
-    val backupKafkaTopic = config.getString("environment.backupKafkaTopic")
+    val backupKafkaTopic = config.getString("kafka.backupKafkaTopic")
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
@@ -70,6 +70,7 @@ object MKBasicMetricsConsumer extends Logging {
       PersistenceHelper.saveToParquetStorage(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schema),
         permanentStorage,
+        "date",
         overwrite = true
       )
     }
@@ -158,7 +159,7 @@ object MKBasicMetricsConsumer extends Logging {
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
         val columns = Seq("date", "combinedId", "earliestDate", "sessionLength","sessionCount")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
-        PersistenceHelper.saveToParquetStorage(df,permanentStorage)
+        PersistenceHelper.saveToParquetStorage(df,permanentStorage,"date")
         KafkaBackupProducerHelper.produce(backupKafkaTopic,df.collect())
         spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
       })

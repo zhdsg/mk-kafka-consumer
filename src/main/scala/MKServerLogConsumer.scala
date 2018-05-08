@@ -62,6 +62,7 @@ object MKServerLogConsumer extends Logging {
       PersistenceHelper.saveToParquetStorage(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schema),
         permanentStorage,
+        null,
         true
       )
     }
