@@ -1,5 +1,4 @@
 
-import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
@@ -13,17 +12,17 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 object MKTemplateConsumer extends Logging{
 
   def main(args: Array[String]) {
-    val config = ConfigFactory.load()
-    val localDevEnv = config.getBoolean("environment.localDev")
-    val processFromStart = config.getBoolean("environment.processFromStart")
+    val config = new ConfigHelper(this)
+    val localDevEnv = config.getBoolean("localDev")
+    val processFromStart = config.getBoolean("processFromStart")
 
 
     // Template: Specify permanent storage Parquet file
-    val permanentStorage = config.getString("environment.permanentStorage")
+    val permanentStorage = config.getString("permanentStorage")
 
 
     val kafkaParams = Map[String, Object](
-      "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
+      "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "test-consumer-group",
@@ -33,8 +32,7 @@ object MKTemplateConsumer extends Logging{
 
 
     // Template: Specify Kafka topic to stream from
-    val configuredTopic = config.getString("kafka.topic")
-
+    val configuredTopic = String.format(config.getString("kafka.topic"),config.getString("environment"))
 
     val topics = Array(configuredTopic)
     val sparkConf = new SparkConf()
@@ -67,7 +65,7 @@ object MKTemplateConsumer extends Logging{
     }
 
     val messages = stream.map(_.value)
-    
+
     messages.print()
 
     logInfo("start the computation...")

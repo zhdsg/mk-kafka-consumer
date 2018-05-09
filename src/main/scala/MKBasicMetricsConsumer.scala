@@ -9,7 +9,6 @@ import org.apache.spark.SparkConf
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
-import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.{from_unixtime, to_date}
 import org.apache.spark.sql.types._
@@ -20,14 +19,14 @@ object MKBasicMetricsConsumer extends Logging {
 
 
   def main(args: Array[String]) {
-    val config = ConfigFactory.load()
-    val localDevEnv = config.getBoolean("environment.localDev")
-    val processFromStart = config.getBoolean("environment.processFromStart")
-    val permanentStorage = config.getString("environment.permanentStorage")
+    val config = new ConfigHelper(this)
+    val localDevEnv = config.getBoolean("localDev")
+    val processFromStart = config.getBoolean("processFromStart")
+    val permanentStorage = config.getString("permanentStorage")
     val backupKafkaTopic = config.getString("kafka.backupKafkaTopic")
 
     val kafkaParams = Map[String, Object](
-      "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
+      "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "test-consumer-group",
@@ -35,7 +34,7 @@ object MKBasicMetricsConsumer extends Logging {
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
-    val configuredTopic = config.getString("kafka.topic")
+    val configuredTopic = String.format(config.getString("kafka.topic"),config.getString("environment"))
     val topics = Array(configuredTopic)
 
     // Create context with 2 second batch interval
@@ -161,10 +160,46 @@ object MKBasicMetricsConsumer extends Logging {
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         PersistenceHelper.saveToParquetStorage(df,permanentStorage,"date")
         KafkaBackupProducerHelper.produce(backupKafkaTopic,df.collect())
-        spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
+        //spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
       })
 
-    //sessionsWithAge.print(1000)
+    sessionsWithAge.print(1000)
+
+    val newUsers = sessionsWithAge
+        .filter(x=>{
+          x._1 == x._3
+        })
+        .map(x=>{
+          (x._2,(x._1,1))
+        })
+        .reduceByKey((a,b)=>{
+          (a._1,a._2+b._2)
+        })
+        .map(x=>{
+          (x._2._1,x._2._2)
+        })
+    newUsers.print(1000)
+
+    val dau = sessionsWithAge
+        .map(x=>{
+          ((x._1,x._2),1)
+        })
+        .reduceByKey((a,b)=>{
+          a+b
+        })
+        .map(x=>{
+          (x._1._1,x._2)
+        })
+    dau.print(1000)
+
+
+    //val wau
+    //val mau
+    //val d1retention
+    //val d7retention
+    //val d30retention
+
+
 
     logInfo("start the computation...")
     ssc.start()

@@ -15,13 +15,13 @@ import org.apache.spark.streaming.kafka010._
 
 object MKServerLogConsumer extends Logging {
   def main(args: Array[String]) {
-    val config = ConfigFactory.load()
-    val localDevEnv = config.getBoolean("environment.localDev")
-    val processFromStart = config.getBoolean("environment.processFromStart")
-    val permanentStorage = config.getString("environment.permanentStorage")
+    val config = new ConfigHelper(this)
+    val localDevEnv = config.getBoolean("localDev")
+    val processFromStart = config.getBoolean("processFromStart")
+    val permanentStorage = config.getString("permanentStorage")
 
     val kafkaParams = Map[String, Object](
-      "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
+      "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "test-consumer-group",
@@ -29,7 +29,7 @@ object MKServerLogConsumer extends Logging {
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
-    val configedTopic = config.getString("kafka.topic_server_log")
+    val configedTopic = String.format(config.getString("kafka.topic"),config.getString("environment"))
     val topics = Array(configedTopic)
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
