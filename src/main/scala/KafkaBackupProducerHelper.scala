@@ -13,10 +13,10 @@ object KafkaBackupProducerHelper {
 
   def produce(topic:String,messages:Array[Row]): Unit ={
     if(kafkaBackupProducer==null){
-      val config = ConfigFactory.load()
-      val localDevEnv = config.getBoolean("environment.localDev")
+      val config = new ConfigHelper(this)
+      val localDevEnv = config.getBoolean("localDev")
       val kafkaBackupProducerParams = new Properties()
-      kafkaBackupProducerParams.put("bootstrap.servers", if (localDevEnv) "localhost:9092" else "10.10.100.11:9092")
+      kafkaBackupProducerParams.put("bootstrap.servers", if (localDevEnv) config.getString("kafka.server_localDev")  else config.getString("kafka.server"))
       kafkaBackupProducerParams.put("client.id", "MKKafkaConsumer")
       kafkaBackupProducerParams.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
       kafkaBackupProducerParams.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")

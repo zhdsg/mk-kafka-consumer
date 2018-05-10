@@ -18,13 +18,14 @@ import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 
 object MKServerLogConsumer extends Logging {
   def main(args: Array[String]) {
-    val config = ConfigFactory.load()
-    val localDevEnv = config.getBoolean("environment.localDev")
-    val processFromStart = config.getBoolean("environment.processFromStart")
-    val permanentStoragePayment = config.getString("environment.permanentStorage_payment")
-    val permanentStorageRefund = config.getString("environment.permanentStorage_refund")
+    val config = new ConfigHelper(this)
+    val localDevEnv = config.getBoolean("localDev")
+    val processFromStart = config.getBoolean("processFromStart")
+    val permanentStoragePayment = config.getString("permanentStorage_payment")
+    val permanentStorageRefund = config.getString("permanentStorage_refund")
+
     val kafkaParams = Map[String, Object](
-      "bootstrap.servers" -> (if (localDevEnv) "localhost:9092" else "10.10.100.11:9092"),
+      "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "test-consumer-group",
@@ -32,7 +33,7 @@ object MKServerLogConsumer extends Logging {
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
-    val configedTopic = config.getString("kafka.topic_server_log")
+    val configedTopic = String.format(config.getString("kafka.topic"),config.getString("environment"))
     val topics = Array(configedTopic)
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
@@ -54,6 +55,7 @@ object MKServerLogConsumer extends Logging {
 //    val lines = ssc.socketTextStream(args(0), args(1).toInt, StorageLevel.MEMORY_AND_DISK_SER)
     val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf)
 
+
 //    val schema = StructType(
 //      StructField("actionType", StringType, true) ::
 //      StructField("userId", StringType, true) ::
@@ -71,6 +73,7 @@ object MKServerLogConsumer extends Logging {
 //        true
 //      )
 //    }
+
 
     //Filter out kafka metadata
     val messages = stream.map(_.value)
