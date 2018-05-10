@@ -24,9 +24,4 @@ object PersistenceHelper {
     val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
     writerMode.save(file)
   }
-  def saveToMysql(dataFrame: DataFrame,overwrite:Boolean=false):Unit={
-    val writerMode = if (overwrite) "overwrite" else "append"
-    dataFrame.write.mode(writerMode)
-      .jdbc(mysqlServer, mysqlServerLogTable, connectionProperties)
-  }
 }

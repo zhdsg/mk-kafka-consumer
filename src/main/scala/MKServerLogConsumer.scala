@@ -79,7 +79,7 @@ object MKServerLogConsumer extends Logging {
         df.show(1000)
         logInfo("about to write to parquet!")
         PersistenceHelper.saveToParquetStorage(df, permanentStorage)
-        spark.sql("SELECT * FROM parquet.`" + permanentStorage + "` GROUP BY date").show(1000)
+        spark.sql("SELECT * FROM parquet.`" + permanentStorage + "`").show(1000)
 
       }
       else{
