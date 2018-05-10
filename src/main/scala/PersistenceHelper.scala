@@ -1,6 +1,6 @@
+
 import java.util.Properties
 
-import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.DataFrame
 
 /**
