@@ -10,7 +10,7 @@ import org.apache.spark.streaming._
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{from_unixtime, to_date,date_add}
+import org.apache.spark.sql.functions.{from_unixtime, to_date,date_add,datediff}
 import org.apache.spark.sql.types._
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010._
@@ -240,9 +240,74 @@ object MKBasicMetricsConsumer extends Logging {
       })
     mau.print(1000)
 
-    //val d1retention
-    //val d7retention
-    //val d30retention
+    val d1retention = sessionsWithAge
+      .map(x=>{
+        (x._1,x._2,x._3)
+      })
+      .transform(rdd=>{
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("date", "combinedId","age")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        df
+          .withColumn("age",datediff(df.col("date"),df.col("age")))
+          .rdd
+      })
+      .filter(x=>{
+        x.getAs[Integer]("age") == 1
+      })
+      .map(x=>{
+        (x.getAs[String]("date"),1)
+      })
+      .reduceByKey((a,b)=>{
+        a+b
+      })
+    d1retention.print(1000)
+
+    val d7retention = sessionsWithAge
+      .map(x=>{
+        (x._1,x._2,x._3)
+      })
+      .transform(rdd=>{
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("date", "combinedId","age")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        df
+          .withColumn("age",datediff(df.col("date"),df.col("age")))
+          .rdd
+      })
+      .filter(x=>{
+        x.getAs[Integer]("age") == 7
+      })
+      .map(x=>{
+        (x.getAs[String]("date"),1)
+      })
+      .reduceByKey((a,b)=>{
+        a+b
+      })
+    d7retention.print(1000)
+
+    val d30retention = sessionsWithAge
+      .map(x=>{
+        (x._1,x._2,x._3)
+      })
+      .transform(rdd=>{
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("date", "combinedId","age")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        df
+          .withColumn("age",datediff(df.col("date"),df.col("age")))
+          .rdd
+      })
+      .filter(x=>{
+        x.getAs[Integer]("age") == 30
+      })
+      .map(x=>{
+        (x.getAs[String]("date"),1)
+      })
+      .reduceByKey((a,b)=>{
+        a+b
+      })
+    d30retention.print(1000)
 
 
 
