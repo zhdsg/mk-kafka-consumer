@@ -216,7 +216,30 @@ object MKBasicMetricsConsumer extends Logging {
       })
     wau.print(1000)
 
-    //val mau
+    val mau = sessionsWithAge
+      .map(x=>{
+        (x._1,x._2)
+      })
+      .transform(rdd=>{
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("date", "combinedId")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        var df2 = df
+        for(days <- 1 to 30) {
+          df2 = df2.union(df
+            .withColumn("date", date_add(df.col("date"), days))
+          )
+        }
+        df2.rdd
+      })
+      .map(x=>{
+        (x.getAs[Date]("date"),1)
+      })
+      .reduceByKey((a,b)=>{
+        a+b
+      })
+    mau.print(1000)
+
     //val d1retention
     //val d7retention
     //val d30retention
