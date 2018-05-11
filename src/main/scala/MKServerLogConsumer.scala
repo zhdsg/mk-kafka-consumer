@@ -12,6 +12,7 @@ import org.apache.spark.streaming._
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
 import com.typesafe.config.ConfigFactory
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 
@@ -46,38 +47,59 @@ object MKServerLogConsumer extends Logging {
     ssc.sparkContext.setLogLevel(if(localDevEnv)"INFO" else "ERROR")
 
     // Create direct kafka stream with brokers and topics
-    val stream =
-      KafkaUtils.createDirectStream[String, String](
-      ssc,
-      PreferConsistent,
-      Subscribe[String, String](topics, kafkaParams)
-    )
-//    val lines = ssc.socketTextStream(args(0), args(1).toInt, StorageLevel.MEMORY_AND_DISK_SER)
+//    val stream =
+//      KafkaUtils.createDirectStream[String, String](
+//      ssc,
+//      PreferConsistent,
+//      Subscribe[String, String](topics, kafkaParams)
+//    )
+    val lines = ssc.socketTextStream(args(0), args(1).toInt, StorageLevel.MEMORY_AND_DISK_SER)
     val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf)
 
 
-//    val schema = StructType(
-//      StructField("actionType", StringType, true) ::
-//      StructField("userId", StringType, true) ::
-//      StructField("payTime", DateType, true) ::
-//        StructField("payChannel", StringType, true) ::
-//        StructField("totalPrice", LongType, true) ::
-//        StructField("date", DateType, true) :: Nil
-//    )
-//
-//
-//    if (processFromStart) {
-//      PersistenceHelper.saveToParquetStorage(
-//        sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schema),
-//        permanentStorage,
-//        true
-//      )
-//    }
+    val schemaPay = StructType(
+      StructField("actionType", StringType, true) ::
+      StructField("userId", StringType, true) ::
+        StructField("purchaseId", StringType, true) ::
+        StructField("payTime", DateType, true) ::
+        StructField("payChannel", StringType, true) ::
+        StructField("totalPrice", LongType, true) ::
+        StructField("date", DateType, true) :: Nil
+    )
+
+    val schemaRefund = StructType(
+      StructField("actionType", StringType, true) ::
+        StructField("userId", StringType, true) ::
+        StructField("verifyTime", DateType, true) ::
+        StructField("classId", StringType, true) ::
+        StructField("purchaseId", StringType, true) ::
+        StructField("purchaseMoney", LongType, true) ::
+        StructField("refundMoney", LongType, true) ::
+        StructField("status", LongType, true) ::
+        StructField("statusName", StringType, true) ::
+        StructField("date", DateType, true) :: Nil
+    )
+
+
+    if (processFromStart) {
+      PersistenceHelper.saveToParquetStorage(
+        sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schemaPay),
+        permanentStoragePayment,
+        "date",
+        true
+      )
+      PersistenceHelper.saveToParquetStorage(
+        sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schemaRefund),
+        permanentStorageRefund,
+        "date",
+        true
+      )
+    }
 
 
     //Filter out kafka metadata
-    val messages = stream.map(_.value)
-//    val messages= lines
+//    val messages = stream.map(_.value)
+    val messages= lines
     val structuredMessages = messages
       .transform(rdd=> {
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
@@ -102,19 +124,20 @@ object MKServerLogConsumer extends Logging {
       (x.getAs[String]("actionType").equals(ConsUtil.PAY_ACTION))
     }).map(x=>(
         (x.getAs[String]("actionType"), x.getAs[String]("studentId"),
+          x.getAs[String]("purchaseId"),
           Timestamp.valueOf(x.getAs[String]("payTime")), x.getAs[String]("payChannel"),
           x.getAs[Long]("totalPrice"),Timestamp.valueOf(x.getAs[String]("payTime")))
       ))
 
     payments.foreachRDD(rdd=>{
-      val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
-      val columns = Seq("actionType", "userId", "payTime", "payChannel","totalPrice","date")
-      val df = spark.createDataFrame(rdd).toDF(columns: _*)
-      df.show(1000)
       if(!rdd.isEmpty()){
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("actionType", "userId", "purchaseId", "payTime", "payChannel","totalPrice","date")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        df.show(1000)
         logInfo("about to write pay log to parquet!")
         PersistenceHelper.saveToParquetStorage(df, permanentStoragePayment)
-        spark.sql("SELECT actionType, userId, payTime, payChannel, totalPrice, date FROM parquet.`" + permanentStoragePayment + "`").show(1000)
+        spark.sql("SELECT actionType, userId, purchaseId, payTime, payChannel, totalPrice, date FROM parquet.`" + permanentStoragePayment + "`").show(1000)
       }
     })
 
@@ -142,14 +165,14 @@ object MKServerLogConsumer extends Logging {
         ))
 
     refunds.foreachRDD(rdd=>{
-      val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
-      val columns = Seq("actionType", "userId", "verifyTime", "classId","purchaseId","purchaseMoney","refundMoney","stats","statsName","date")
-      val df = spark.createDataFrame(rdd).toDF(columns: _*)
-      df.show(1000)
       if(!rdd.isEmpty()){
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("actionType", "userId", "verifyTime", "classId","purchaseId","purchaseMoney","refundMoney","status","statusName","date")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        df.show(1000)
         logInfo("about to write refund log to parquet!")
         PersistenceHelper.saveToParquetStorage(df, permanentStorageRefund)
-        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseId, purchaseMoney, refundMoney,stats,statsName, date FROM parquet.`" + permanentStorageRefund + "`").show(1000)
+        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseId, purchaseMoney, refundMoney,status,statusName, date FROM parquet.`" + permanentStorageRefund + "`").show(1000)
       }
     })
 
