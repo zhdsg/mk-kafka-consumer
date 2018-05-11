@@ -10,7 +10,6 @@ object KafkaBackupProducerHelper {
 
   @transient  private var kafkaBackupProducer: KafkaProducer[String,String] = _
 
-
   def produce(topic:String,messages:Array[Row]): Unit ={
     if(kafkaBackupProducer==null){
       val config = new ConfigHelper(this)
