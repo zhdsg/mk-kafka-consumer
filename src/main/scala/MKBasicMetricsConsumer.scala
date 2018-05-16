@@ -76,6 +76,8 @@ object MKBasicMetricsConsumer extends Logging {
 
     //Filter out kafka metadata
     val messages = stream.map(_.value)
+    //messages.print(10)
+
     val structuredMessages = messages
       .transform(rdd=> {
       val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
@@ -98,6 +100,8 @@ object MKBasicMetricsConsumer extends Logging {
       }})
       .filter(row => row.length>0)
 
+    //structuredMessages.print(10)
+
     val sessionsStateSpec = StateSpec.function(sessionsStateUpdate _)
 
     val sessions = structuredMessages
@@ -117,6 +121,7 @@ object MKBasicMetricsConsumer extends Logging {
         .mapWithState(sessionsStateSpec)
 
     //sessions.print(1000)
+
     val dataPointsStateSpec = StateSpec.function(dataPointsStateUpdate _)
 
     val dataPoints = sessions
@@ -153,6 +158,8 @@ object MKBasicMetricsConsumer extends Logging {
           x._2._2.get,x._2._1._2,x._2._1._3
         )})
 
+    //userAge.print(1000)
+
     sessionsWithAge
       .foreachRDD(rdd=>{
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
@@ -160,10 +167,10 @@ object MKBasicMetricsConsumer extends Logging {
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         PersistenceHelper.saveToParquetStorage(df,permanentStorage,"date")
         KafkaBackupProducerHelper.produce(backupKafkaTopic,df.take(df.count.toInt))
-        //spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
+        spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
       })
 
-
+    //sessionsWithAge.print(1000)
 
     val newUsers = sessionsWithAge
         .filter(x=>{
