@@ -23,6 +23,7 @@ object MKBasicMetricsConsumer extends Logging {
     val localDevEnv = config.getBoolean("localDev")
     val processFromStart = config.getBoolean("processFromStart")
     val permanentStorage = config.getString("permanentStorage")
+    val hiveStorage = config.getString("hiveStorage")
     val backupKafkaTopic = String.format( config.getString("kafka.backupKafkaTopic"),config.getString("environment"))
 
     val kafkaParams = Map[String, Object](
@@ -76,6 +77,8 @@ object MKBasicMetricsConsumer extends Logging {
 
     //Filter out kafka metadata
     val messages = stream.map(_.value)
+    messages.print(10)
+
     val structuredMessages = messages
       .transform(rdd=> {
       val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
@@ -98,6 +101,8 @@ object MKBasicMetricsConsumer extends Logging {
       }})
       .filter(row => row.length>0)
 
+    structuredMessages.print(10)
+
     val sessionsStateSpec = StateSpec.function(sessionsStateUpdate _)
 
     val sessions = structuredMessages
@@ -116,7 +121,8 @@ object MKBasicMetricsConsumer extends Logging {
         })
         .mapWithState(sessionsStateSpec)
 
-    //sessions.print(1000)
+    sessions.print(1000)
+
     val dataPointsStateSpec = StateSpec.function(dataPointsStateUpdate _)
 
     val dataPoints = sessions
@@ -131,7 +137,7 @@ object MKBasicMetricsConsumer extends Logging {
       })
       .mapWithState(dataPointsStateSpec)
 
-    //dataPoints.print(1000)
+    dataPoints.print(1000)
 
     val userAge = dataPoints
       .map(x=>{
@@ -140,6 +146,8 @@ object MKBasicMetricsConsumer extends Logging {
       .reduceByKey((a,b)=>{
         if (a.before(b)) a else b
       })
+
+    userAge.print(1000)
 
     val sessionsWithAge = dataPoints
         .map(x=>{
@@ -159,11 +167,12 @@ object MKBasicMetricsConsumer extends Logging {
         val columns = Seq("date", "combinedId", "earliestDate", "sessionLength","sessionCount")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         PersistenceHelper.saveToParquetStorage(df,permanentStorage,"date")
+        PersistenceHelper.saveToHive(df,hiveStorage,"date")
         KafkaBackupProducerHelper.produce(backupKafkaTopic,df.take(df.count.toInt))
-        //spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
+        spark.sql("SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`"+permanentStorage+"` GROUP BY date, combinedId").show(1000)
       })
 
-
+    sessionsWithAge.print(1000)
 
     val newUsers = sessionsWithAge
         .filter(x=>{
