@@ -13,6 +13,7 @@ object SparkSessionSingleton {
       instance = SparkSession
         .builder
         .config(sparkConf)
+        .enableHiveSupport()
         .getOrCreate()
     }
     instance

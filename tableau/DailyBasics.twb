@@ -126,7 +126,7 @@
             </connection>
           </named-connection>
         </named-connections>
-        <relation connection='spark.1l8axio1jpk41o1gt4ujk11bhs8z' name='custom_sql_query' type='text'>SELECT date,combinedId,min(earliestDate) as earliestDate,max(sessionLength) as sessionLength,max(sessionCount) as sessionCount FROM parquet.`sessions.parquet` GROUP BY date, combinedId</relation>
+        <relation connection='spark.1l8axio1jpk41o1gt4ujk11bhs8z' name='custom_sql_query' type='text'>SELECT date,&#10;combinedId,&#10;min(earliestDate) as earliestDate,&#10;max(sessionLength) as sessionLength,&#10;max(sessionCount) as sessionCount &#10;FROM parquet.`sessions.parquet` &#10;GROUP BY date, combinedId</relation>
         <metadata-records>
           <metadata-record class='column'>
             <remote-name>date</remote-name>
@@ -276,7 +276,7 @@
           <groupfilter function='level-members' level='[combinedId]' />
         </groupfilter>
       </group>
-      <layout dim-ordering='alphabetic' dim-percentage='0.280514' measure-ordering='alphabetic' measure-percentage='0.62955' parameter-percentage='0.0899358' show-structure='true' />
+      <layout dim-ordering='alphabetic' dim-percentage='0.27409' measure-ordering='alphabetic' measure-percentage='0.633833' parameter-percentage='0.0920771' show-structure='true' />
       <style>
         <style-rule element='mark'>
           <encoding attr='color' field='[:Measure Names]' type='palette'>
