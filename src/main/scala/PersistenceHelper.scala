@@ -31,6 +31,6 @@ object PersistenceHelper {
       .format("parquet")
     val writerPartitioned = if(partitionBy == null) writer else writer.partitionBy(partitionBy)
     val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
-    writerMode.saveAsTable("table")
+    writerMode.saveAsTable(table)
   }
 }

@@ -3,7 +3,7 @@
   */
 
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.streaming.kafka010.KafkaUtils
+import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, KafkaUtils, OffsetRange}
 import java.sql.{Date, Timestamp}
 
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -24,8 +24,8 @@ object MKServerLogConsumer extends Logging {
     val config = new ConfigHelper(this)
     val localDevEnv = config.getBoolean("localDev")
     val processFromStart = config.getBoolean("processFromStart")
-    val permanentStoragePayment = config.getString("permanentStorage_payment")
-    val permanentStorageRefund = config.getString("permanentStorage_refund")
+    val permanentStoragePayment = config.getString("hiveStorage_payment")
+    val permanentStorageRefund = config.getString("hiveStorage_refund")
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
@@ -41,11 +41,12 @@ object MKServerLogConsumer extends Logging {
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
       .setAppName("MKKafkaConsumer")
+      .set("spark.sql.warehouse.dir","/user/hive/warehouse")
     if (localDevEnv) sparkConf.setMaster("local[2]")
 
     val ssc = new StreamingContext(sparkConf, Seconds(2))
     //Because of updateStateByKey requires this
-    ssc.checkpoint("/tmp/yaning-log-analyzer-streaming")
+    ssc.checkpoint("/tmp/root-log-analyzer-streaming")
     ssc.sparkContext.setLogLevel("ERROR")
 
     // Create direct kafka stream with brokers and topics
@@ -84,22 +85,25 @@ object MKServerLogConsumer extends Logging {
 
 
     if (processFromStart) {
-      PersistenceHelper.saveToParquetStorage(
+      PersistenceHelper.saveToHive(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schemaPay),
         permanentStoragePayment,
         "date",
         true
       )
-      PersistenceHelper.saveToParquetStorage(
+      PersistenceHelper.saveToHive(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schemaRefund),
         permanentStorageRefund,
         "date",
         true
       )
     }
-
-    val lines= stream.map(_.value())
-    lines.print()
+//    var offsetRanges = Array[OffsetRange]()
+//    val lines= stream.transform{rdd=>
+//      offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+//      rdd
+//    }.map(_.value())
+//    lines.print()
     //Filter out kafka metadata
     val messages = stream.filter(x=>{
       x.value().length>ConsUtil.MK_SERVER_LOG_ROW_OFFSET
@@ -138,15 +142,17 @@ object MKServerLogConsumer extends Logging {
 
     payments.foreachRDD(rdd=>{
       if(!rdd.isEmpty()){
+
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
         val columns = Seq("actionType", "userId", "purchaseNumber", "payTime", "payChannel","totalPrice","date")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         logError("about to show df!")
         df.show()
         logError("about to write pay log to parquet!")
-        PersistenceHelper.saveToParquetStorage(df, permanentStoragePayment,"date")
+        PersistenceHelper.saveToHive(df, permanentStoragePayment,"date")
         logError("about to show parquet!")
-        spark.sql("SELECT actionType, userId, purchaseNumber, payTime, payChannel, totalPrice, date FROM parquet.`" + permanentStoragePayment + "`").show()
+        spark.sql("SELECT actionType, userId, purchaseNumber, payTime, payChannel, totalPrice, date FROM " + permanentStoragePayment).show()
+//        payments.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
       }
     })
 
@@ -181,9 +187,10 @@ object MKServerLogConsumer extends Logging {
         logError("about to show df!")
         df.show()
         logError("about to write refund log to parquet!")
-        PersistenceHelper.saveToParquetStorage(df, permanentStorageRefund,"date")
+        PersistenceHelper.saveToHive(df, permanentStorageRefund,"date")
         logError("about to show parquet!")
-        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseNumber, purchaseMoney, refundMoney,status,statusName, date FROM parquet.`" + permanentStorageRefund + "`").show()
+        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseNumber, purchaseMoney, refundMoney,status,statusName, date FROM " + permanentStorageRefund).show()
+//        refunds.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
       }
     })
 
