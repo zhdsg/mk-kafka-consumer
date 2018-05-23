@@ -2,6 +2,8 @@
   * Created by yaning on 5/6/18.
   */
 object ConsUtil {
+  // mk's server log has a format of: YYYY-DD-MM HH:MM:SS.sss {json content}. Need to filter out the time part
+  val MK_SERVER_LOG_ROW_OFFSET = 24
   //  declarations for names of the server action logs
   val PAY_ACTION="pay"
   val REFUND_SUCCESS_ACTION="refund_success"

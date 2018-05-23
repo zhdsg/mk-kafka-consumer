@@ -3,7 +3,7 @@
   */
 
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.streaming.kafka010.KafkaUtils
+import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, KafkaUtils, OffsetRange}
 import java.sql.{Date, Timestamp}
 
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -13,8 +13,10 @@ import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.functions.{from_unixtime, to_date}
 import org.apache.spark.sql.types._
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+
 
 
 object MKServerLogConsumer extends Logging {
@@ -22,8 +24,8 @@ object MKServerLogConsumer extends Logging {
     val config = new ConfigHelper(this)
     val localDevEnv = config.getBoolean("localDev")
     val processFromStart = config.getBoolean("processFromStart")
-    val permanentStoragePayment = config.getString("permanentStorage_payment")
-    val permanentStorageRefund = config.getString("permanentStorage_refund")
+    val permanentStoragePayment = config.getString("hiveStorage_payment")
+    val permanentStorageRefund = config.getString("hiveStorage_refund")
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
@@ -39,40 +41,41 @@ object MKServerLogConsumer extends Logging {
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
       .setAppName("MKKafkaConsumer")
+      .set("spark.sql.warehouse.dir","/user/hive/warehouse")
     if (localDevEnv) sparkConf.setMaster("local[2]")
 
     val ssc = new StreamingContext(sparkConf, Seconds(2))
     //Because of updateStateByKey requires this
-    ssc.checkpoint("/tmp/yaning-log-analyzer-streaming")
-    ssc.sparkContext.setLogLevel(if(localDevEnv)"INFO" else "ERROR")
+    ssc.checkpoint("/tmp/root-log-analyzer-streaming")
+    ssc.sparkContext.setLogLevel("ERROR")
 
     // Create direct kafka stream with brokers and topics
-//    val stream =
-//      KafkaUtils.createDirectStream[String, String](
-//      ssc,
-//      PreferConsistent,
-//      Subscribe[String, String](topics, kafkaParams)
-//    )
-    val lines = ssc.socketTextStream(args(0), args(1).toInt, StorageLevel.MEMORY_AND_DISK_SER)
+    val stream =
+      KafkaUtils.createDirectStream[String, String](
+      ssc,
+      PreferConsistent,
+      Subscribe[String, String](topics, kafkaParams)
+    )
+//    val lines = ssc.socketTextStream(args(0), args(1).toInt, StorageLevel.MEMORY_AND_DISK_SER)
     val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf)
 
 
     val schemaPay = StructType(
       StructField("actionType", StringType, true) ::
-      StructField("userId", StringType, true) ::
-        StructField("purchaseId", StringType, true) ::
+      StructField("userId", LongType, true) ::
+        StructField("purchaseNumber", StringType, true) ::
         StructField("payTime", DateType, true) ::
-        StructField("payChannel", StringType, true) ::
+        StructField("payChannel", LongType, true) ::
         StructField("totalPrice", LongType, true) ::
         StructField("date", DateType, true) :: Nil
     )
 
     val schemaRefund = StructType(
       StructField("actionType", StringType, true) ::
-        StructField("userId", StringType, true) ::
+        StructField("userId", LongType, true) ::
         StructField("verifyTime", DateType, true) ::
-        StructField("classId", StringType, true) ::
-        StructField("purchaseId", StringType, true) ::
+        StructField("classId", LongType, true) ::
+        StructField("purchaseNumber", StringType, true) ::
         StructField("purchaseMoney", LongType, true) ::
         StructField("refundMoney", LongType, true) ::
         StructField("status", LongType, true) ::
@@ -82,24 +85,32 @@ object MKServerLogConsumer extends Logging {
 
 
     if (processFromStart) {
-      PersistenceHelper.saveToParquetStorage(
+      PersistenceHelper.saveToHive(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schemaPay),
         permanentStoragePayment,
         "date",
         true
       )
-      PersistenceHelper.saveToParquetStorage(
+      PersistenceHelper.saveToHive(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schemaRefund),
         permanentStorageRefund,
         "date",
         true
       )
     }
-
-
+//    var offsetRanges = Array[OffsetRange]()
+//    val lines= stream.transform{rdd=>
+//      offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+//      rdd
+//    }.map(_.value())
+//    lines.print()
     //Filter out kafka metadata
-//    val messages = stream.map(_.value)
-    val messages= lines
+    val messages = stream.filter(x=>{
+      x.value().length>ConsUtil.MK_SERVER_LOG_ROW_OFFSET
+    }).map(x => {
+      x.value().substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET)//get rid of time string in the beginning of each row
+    })
+//    val messages= lines
     val structuredMessages = messages
       .transform(rdd=> {
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
@@ -109,10 +120,8 @@ object MKServerLogConsumer extends Logging {
         val df = spark.read.json(ds)
 
         if(rdd.isEmpty() || !df.columns.contains("actionType")){
-          logInfo("empty rdd!")
           df.rdd
         }else{
-          logInfo("parsing rdd:"+df.show())
           df.filter(x => {
             (x.getAs[String]("actionType")!=null )
           }).rdd
@@ -122,22 +131,28 @@ object MKServerLogConsumer extends Logging {
 
     val payments = structuredMessages.filter(x=>{
       (x.getAs[String]("actionType").equals(ConsUtil.PAY_ACTION))
-    }).map(x=>(
-        (x.getAs[String]("actionType"), x.getAs[String]("studentId"),
-          x.getAs[String]("purchaseId"),
-          Timestamp.valueOf(x.getAs[String]("payTime")), x.getAs[String]("payChannel"),
-          x.getAs[Long]("totalPrice"),Timestamp.valueOf(x.getAs[String]("payTime")))
-      ))
+    }).map(x=>(x.getAs[String]("purchaseNumber"),
+        (x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
+          x.getAs[String]("purchaseNumber"),
+          new Date(x.getAs[Long]("payTime")),
+          x.getAs[Long]("payChannel"),
+          x.getAs[Long]("totalPrice"),
+          new Date(x.getAs[Long]("payTime")))
+      )).reduceByKey{case(a,b)=>a}.map(_._2)
 
     payments.foreachRDD(rdd=>{
       if(!rdd.isEmpty()){
+
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
-        val columns = Seq("actionType", "userId", "purchaseId", "payTime", "payChannel","totalPrice","date")
+        val columns = Seq("actionType", "userId", "purchaseNumber", "payTime", "payChannel","totalPrice","date")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
-        df.show(1000)
-        logInfo("about to write pay log to parquet!")
-        PersistenceHelper.saveToParquetStorage(df, permanentStoragePayment)
-        spark.sql("SELECT actionType, userId, purchaseId, payTime, payChannel, totalPrice, date FROM parquet.`" + permanentStoragePayment + "`").show(1000)
+        logError("about to show df!")
+        df.show()
+        logError("about to write pay log to parquet!")
+        PersistenceHelper.saveToHive(df, permanentStoragePayment,"date")
+        logError("about to show parquet!")
+        spark.sql("SELECT actionType, userId, purchaseNumber, payTime, payChannel, totalPrice, date FROM " + permanentStoragePayment).show()
+//        payments.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
       }
     })
 
@@ -148,10 +163,10 @@ object MKServerLogConsumer extends Logging {
           ||x.getAs[String]("actionType").equals(ConsUtil.REFUND_APPLY_ACTION)
           ||x.getAs[String]("actionType").equals(ConsUtil.REFUND_CANCELLED_ACTION)
           ||x.getAs[String]("actionType").equals(ConsUtil.REFUND_VERIFICATION_FAILED_ACTION))
-      }).map(x=>(
-        (x.getAs[String]("actionType"), x.getAs[String]("studentId"),
-          Timestamp.valueOf(x.getAs[String]("verifyTime")), x.getAs[String]("classId"),
-          x.getAs[String]("purchaseId"),x.getAs[Long]("purchaseMoney"), x.getAs[Long]("money"),
+      }).map(x=>(x.getAs[String]("purchaseNumber"),
+        (x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
+          new Date(x.getAs[Long]("verifyTime")), x.getAs[Long]("classId"),
+          x.getAs[String]("purchaseNumber"),x.getAs[Long]("purchaseMoney"), x.getAs[Long]("money"),
           x.getAs[Long]("status"),x.getAs[Long]("status") match {
             case ConsUtil.toBeVerify => ConsUtil.toBeVerifyStr
             case ConsUtil.verifyFailed => ConsUtil.verifyFailedStr
@@ -161,18 +176,21 @@ object MKServerLogConsumer extends Logging {
             case ConsUtil.onlineRefunded => ConsUtil.onlineRefundedStr
             case ConsUtil.workingInProgress => ConsUtil.workingInProgressStr
           } ,
-          Timestamp.valueOf(x.getAs[String]("verifyTime")))
-        ))
+          new Date(x.getAs[Long]("verifyTime")))
+        )).reduceByKey{case(a,b)=>a}.map(_._2)
 
     refunds.foreachRDD(rdd=>{
       if(!rdd.isEmpty()){
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
-        val columns = Seq("actionType", "userId", "verifyTime", "classId","purchaseId","purchaseMoney","refundMoney","status","statusName","date")
+        val columns = Seq("actionType", "userId", "verifyTime", "classId","purchaseNumber","purchaseMoney","refundMoney","status","statusName","date")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
-        df.show(1000)
-        logInfo("about to write refund log to parquet!")
-        PersistenceHelper.saveToParquetStorage(df, permanentStorageRefund)
-        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseId, purchaseMoney, refundMoney,status,statusName, date FROM parquet.`" + permanentStorageRefund + "`").show(1000)
+        logError("about to show df!")
+        df.show()
+        logError("about to write refund log to parquet!")
+        PersistenceHelper.saveToHive(df, permanentStorageRefund,"date")
+        logError("about to show parquet!")
+        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseNumber, purchaseMoney, refundMoney,status,statusName, date FROM " + permanentStorageRefund).show()
+//        refunds.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
       }
     })
 
