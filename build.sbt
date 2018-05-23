@@ -14,6 +14,7 @@ if(localDev){
     "org.apache.spark" %% "spark-streaming" % sparkVersion,
     "org.apache.spark" %% "spark-sql" % "2.2.0",
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
+    "org.apache.spark" %% "spark-hive" % sparkVersion,
     "com.typesafe" % "config" % "1.3.3"
   )
 }else {
@@ -22,6 +23,7 @@ if(localDev){
     "org.apache.spark" %% "spark-streaming" % sparkVersion % "provided",
     "org.apache.spark" %% "spark-sql" % "2.2.0",
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
+    "org.apache.spark" %% "spark-hive" % sparkVersion,
     "com.typesafe" % "config" % "1.3.3"
   )
 }

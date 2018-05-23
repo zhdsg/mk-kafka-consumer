@@ -24,4 +24,13 @@ object PersistenceHelper {
     val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
     writerMode.save(file)
   }
+
+  def saveToHive(dataFrame: DataFrame, table: String, partitionBy:String = null, overwrite: Boolean = false): Unit = {
+    val writer = dataFrame
+      .write
+      .format("parquet")
+    val writerPartitioned = if(partitionBy == null) writer else writer.partitionBy(partitionBy)
+    val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
+    writerMode.saveAsTable("table")
+  }
 }
