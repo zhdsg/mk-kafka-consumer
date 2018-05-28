@@ -8,12 +8,15 @@ object SparkSessionSingleton {
 
   @transient private var instance: SparkSession = _
 
-  def getInstance(sparkConf: SparkConf): SparkSession = {
+  def getInstance(sparkConf: SparkConf,hiveSupport: Boolean = true): SparkSession = {
     if (instance == null) {
-      instance = SparkSession
+      var builder = SparkSession
         .builder
         .config(sparkConf)
-        .enableHiveSupport()
+      if(hiveSupport) {
+        builder = builder.enableHiveSupport()
+      }
+      instance = builder
         .getOrCreate()
     }
     instance
