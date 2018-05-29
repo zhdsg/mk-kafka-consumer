@@ -3,13 +3,14 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.functions.{from_unixtime, to_date}
 import org.apache.spark.sql.types._
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.streaming.kafka010.KafkaUtils
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
-object MKTemplateConsumer extends Logging{
+object MKStage1Client extends Logging {
 
   def main(args: Array[String]) {
     val config = new ConfigHelper(this)
@@ -26,13 +27,13 @@ object MKTemplateConsumer extends Logging{
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "test-consumer-group",
-      "auto.offset.reset" -> (if(processFromStart) "earliest" else "latest"),
+      "auto.offset.reset" -> (if (processFromStart) "earliest" else "latest"),
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
 
     // Template: Specify Kafka topic to stream from
-    val configuredTopic =config.getEnvironmentString("kafka.topic")
+    val configuredTopic = String.format(config.getString("kafka.topic"), config.getString("environment"))
 
     val topics = Array(configuredTopic)
     val sparkConf = new SparkConf()
@@ -54,12 +55,11 @@ object MKTemplateConsumer extends Logging{
     )
 
     val schema = StructType(
-        StructField("templateField", LongType, nullable = true)::
-          Nil
+      Nil
     )
 
-    val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf,!localDevEnv)
-    if(processFromStart) {
+    val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf, !localDevEnv)
+    if (processFromStart) {
       PersistenceHelper.saveToParquetStorage(
         sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], schema),
         permanentStorage,
@@ -70,7 +70,35 @@ object MKTemplateConsumer extends Logging{
 
     val messages = stream.map(_.value)
 
-    messages.print()
+    messages
+      .foreachRDD(rdd => {
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf, !localDevEnv)
+        //Transform String rdd into structured DataFrame by parsing JSON
+        import spark.implicits._
+        val ds = spark.createDataset[String](rdd)
+        val df = spark.read.json(ds)
+
+
+        if (rdd.isEmpty() || !df.columns.contains("t")) {
+          df.rdd
+        } else {
+          val toSave = df
+            .filter(x => {
+              x.getAs[Any]("t") != null
+            })
+            //Add new column to DataFrame: DateType parsed from timestamp
+            .withColumn("date", to_date(from_unixtime(df("t") / 1000)))
+
+          if(localDevEnv) {
+            PersistenceHelper.saveToParquetStorage(toSave, permanentStorage, "date")
+            spark.sql("SELECT * FROM parquet.`" + permanentStorage + "`").show()
+          }else{
+            PersistenceHelper.saveToHive(toSave, permanentStorage, "date")
+          }
+        }
+      })
+
+
 
     logInfo("start the computation...")
     ssc.start()
@@ -79,4 +107,4 @@ object MKTemplateConsumer extends Logging{
 
   }
 
-  }
+}

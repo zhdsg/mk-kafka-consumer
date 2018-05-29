@@ -41,6 +41,9 @@ object MKBasicMetricsConsumer extends Logging {
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
       .setAppName("MKKafkaConsumer")
+      if(!localDevEnv) {
+        sparkConf.set("spark.sql.warehouse.dir", "/user/hive/warehouse")
+      }
     if(localDevEnv) sparkConf.setMaster("local")
 
     val ssc = new StreamingContext(sparkConf, Seconds(2))
