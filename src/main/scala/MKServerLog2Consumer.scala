@@ -154,46 +154,46 @@ object MKServerLog2Consumer extends Logging {
     })
     logError("about to process refunds!")
 
-//    val refunds =
-//      structuredMessages.filter(x => {
-//        (x.getAs[String]("actionType").equals(ConsUtil.REFUND_SUCCESS_ACTION)
-//          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_VERIFICATION_FAILED_ACTION)
-//          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_APPLY_ACTION)
-//          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_CANCELLED_ACTION)
-//          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_VERIFICATION_FAILED_ACTION))
-//      }).map(x =>
-//        (x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
-////          if (x.getAs[Long]("verifyTime") != null) new Date(x.getAs[Long]("verifyTime")) else null,
+    val refunds =
+      structuredMessages.filter(x => {
+        (x.getAs[String]("actionType").equals(ConsUtil.REFUND_SUCCESS_ACTION)
+          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_VERIFICATION_FAILED_ACTION)
+          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_APPLY_ACTION)
+          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_CANCELLED_ACTION)
+          || x.getAs[String]("actionType").equals(ConsUtil.REFUND_VERIFICATION_FAILED_ACTION))
+      }).map(x =>
+        (x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
+          if (x.getAs[Long]("verifyTime") != null) new Date(x.getAs[Long]("verifyTime")) else null,
 //          new Date(x.getAs[Long]("verifyTime")),
-//          x.getAs[Long]("classId"),
-//          x.getAs[String]("purchaseNumber"), x.getAs[Long]("purchaseMoney"), x.getAs[Long]("money"),
-//          x.getAs[Long]("status"), x.getAs[Long]("status") match {
-//          case ConsUtil.toBeVerify => ConsUtil.toBeVerifyStr
-//          case ConsUtil.verifyFailed => ConsUtil.verifyFailedStr
-//          case ConsUtil.cashRefunded => ConsUtil.cashRefundedStr
-//          case ConsUtil.canceled => ConsUtil.canceledStr
-//          case ConsUtil.refundInProgress => ConsUtil.refundInProgressStr
-//          case ConsUtil.onlineRefunded => ConsUtil.onlineRefundedStr
-//          case ConsUtil.workingInProgress => ConsUtil.workingInProgressStr
-//        },
+          x.getAs[Long]("classId"),
+          x.getAs[String]("purchaseNumber"), x.getAs[Long]("purchaseMoney"), x.getAs[Long]("money"),
+          x.getAs[Long]("status"), x.getAs[Long]("status") match {
+          case ConsUtil.toBeVerify => ConsUtil.toBeVerifyStr
+          case ConsUtil.verifyFailed => ConsUtil.verifyFailedStr
+          case ConsUtil.cashRefunded => ConsUtil.cashRefundedStr
+          case ConsUtil.canceled => ConsUtil.canceledStr
+          case ConsUtil.refundInProgress => ConsUtil.refundInProgressStr
+          case ConsUtil.onlineRefunded => ConsUtil.onlineRefundedStr
+          case ConsUtil.workingInProgress => ConsUtil.workingInProgressStr
+        },
 //          new Date(x.getAs[Long]("verifyTime")))
-////          if (x.getAs[Long]("verifyTime") != null) new Date(x.getAs[Long]("verifyTime")) else new Date(x.getAs[Long]("updateTime")))
-//      )
-//
-//    refunds.foreachRDD(rdd => {
-//      if (!rdd.isEmpty()) {
-//        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
-//        val columns = Seq("actionType", "userId", "verifyTime", "classId", "purchaseNumber", "purchaseMoney", "refundMoney", "status", "statusName", "date")
-//        val df = spark.createDataFrame(rdd).toDF(columns: _*)
-//        logError("about to show df!")
-//
-//        df.show()
-//        logError("about to write refund log to parquet!")
-//        PersistenceHelper.saveToHive(df, permanentStorageRefund, "date")
-//        logError("about to show parquet!")
-//        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseNumber, purchaseMoney, refundMoney,status,statusName, date FROM " + permanentStorageRefund).show()
-//      }
-//    })
+          if (x.getAs[Long]("verifyTime") != null) new Date(x.getAs[Long]("verifyTime")) else new Date(x.getAs[Long]("updateTime")))
+      )
+
+    refunds.foreachRDD(rdd => {
+      if (!rdd.isEmpty()) {
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val columns = Seq("actionType", "userId", "verifyTime", "classId", "purchaseNumber", "purchaseMoney", "refundMoney", "status", "statusName", "date")
+        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        logError("about to show df!")
+
+        df.show()
+        logError("about to write refund log to parquet!")
+        PersistenceHelper.saveToHive(df, permanentStorageRefund, "date")
+        logError("about to show parquet!")
+        spark.sql("SELECT actionType, userId, verifyTime, classId, purchaseNumber, purchaseMoney, refundMoney,status,statusName, date FROM " + permanentStorageRefund).show()
+      }
+    })
 
     logInfo("start the computation...")
     ssc.start()
