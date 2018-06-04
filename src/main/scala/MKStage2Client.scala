@@ -2,14 +2,8 @@
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import java.sql.Date
-import java.net.URLDecoder
-import org.uaparser.scala.Parser
 
 object MKStage2Client extends Logging {
-
-  def decodeUrl(str:String): String ={
-    URLDecoder.decode(if(str!=null)str else "","utf-8")
-  }
 
   def main(args: Array[String]) {
     val config = new ConfigHelper(this)
@@ -31,12 +25,20 @@ object MKStage2Client extends Logging {
 
     import spark.implicits._
 
-    println(Parser.get.parse(
+    println(ParsingHelper.parseUA(
       "Mozilla/5.0 (iPhone; CPU iPhone OS 11_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E216 MicroMessenger/6.6.5 NetType/4G Language/zh_CN"
     ))
-    println(Parser.get.parse(
+    println(ParsingHelper.parseUA(
       "Mozilla/5.0 (Linux; Android 7.1.2; Redmi 4X Build/N2G47H; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044005 Mobile Safari/537.36 MicroMessenger/6.6.5.1280(0x26060536) NetType/WIFI Language/zh_CN"
     ))
+
+    //TODO: parse language from user agent
+    //TODO: parse network type from user agent
+    //TODO: better parse url
+    //TODO: parse location
+    //TODO: compile the dimension table
+    //TODO: compile the fact table
+    //TODO: compile measures for dimension table
 
 
     val cleanedUpData = spark.read.parquet(permanentStorage).as[UserLogRecord]
@@ -45,15 +47,15 @@ object MKStage2Client extends Logging {
           x.date,
           x._id,
           //x._idn, x._idts, x._idvc,
-          decodeUrl(x._ref),
+          ParsingHelper.decodeUrl(x._ref),
           //x._refts, x._viewts,
-          decodeUrl(x.action_name),
+          ParsingHelper.decodeUrl(x.action_name),
           //x.ag,
           x.appId,
           //x.cookie, x.data, x.dir,
           x.e_a,
           x.e_c,
-          decodeUrl(x.e_n),
+          ParsingHelper.decodeUrl(x.e_n),
           //x.e_v, x.fla, x.gears, x.gt_ms,
           x.ip,
           //x.java, x.pdf, x.pv_id, x.qt, x.r, x.realp, x.rec,
@@ -61,26 +63,38 @@ object MKStage2Client extends Logging {
           x.t,
           x.u_a,
           x.uid,
-          decodeUrl(x.url),
-          decodeUrl(x.urlref)
+          ParsingHelper.decodeUrl(x.url),
+          ParsingHelper.decodeUrl(x.urlref)
           //x.wma
         )
       })
 
     val dimensions = cleanedUpData
         .map(x=>{
-
+          val u_a = ParsingHelper.parseUA(x.u_a)
           Dimensions(
             x.date,
             x.appId,
             x.action_name,
+            x.url,
             x.e_a,
             x.e_c,
             x.e_n,
             x.res,
-            x._ref
+            x._ref,
+            u_a.client.device.model.getOrElse("Unknown device"),
+            u_a.client.os.family,
+            u_a.client.os.family+" "+u_a.client.os.major,
+            u_a.language,
+            u_a.connection
           )
         })
+//        .map(x=>{
+//          if(!x.url.isEmpty)
+//            println(x.url)
+//          x
+//        })
+
 
     dimensions.show(1000)
 
@@ -93,6 +107,7 @@ final case class Dimensions(
                              date:Date,
                              appId:Long,
                              action_name:String,
+                             url:String,
                              e_a:String,
                              e_c:String,
                              e_n:String,
@@ -100,7 +115,9 @@ final case class Dimensions(
                              _ref:String,
                              device:String,
                              os:String,
-                             osVersion:String
+                             osVersion:String,
+                             language:String,
+                             netType:String
                           )
 
 final case class UserLogRecord(
