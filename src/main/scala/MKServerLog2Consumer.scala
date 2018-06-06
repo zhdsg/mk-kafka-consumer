@@ -5,7 +5,7 @@ import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, K
 import java.sql.{Date, Timestamp}
 
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
@@ -25,19 +25,20 @@ object MKServerLog2Consumer extends Logging {
       "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
-      "group.id" -> "test-consumer-group",
+      "group.id" -> "serverLogGroup",
       "auto.offset.reset" -> (if (processFromStart) "earliest" else "latest"),
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
     val configedTopic = String.format(config.getString("kafka.topic"), config.getString("environment"))
+
     val topics = Array(configedTopic)
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
       .setAppName("MKServerConsumer")
       .set("spark.sql.warehouse.dir", "/user/hive/warehouse")
       .set("spark.cores.max", "2")
-    if (localDevEnv) sparkConf.setMaster("local[2]")
+//    if (localDevEnv) sparkConf.setMaster("local[2]")
 
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 
@@ -98,8 +99,7 @@ object MKServerLog2Consumer extends Logging {
     //Filter out kafka metadata
 
     logError("about to process logs!")
-    val lines = stream.map(_.value())
-    lines.print()
+
     val messages = stream.filter(x => {
       x.value().length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET
     }).map(x => {
@@ -129,7 +129,7 @@ object MKServerLog2Consumer extends Logging {
     val payments = structuredMessages.filter(x => {
       (x.getAs[String]("actionType").equals(ConsUtil.PAY_ACTION))
     }).map(x =>
-      (x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
+      Row(x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
         x.getAs[String]("purchaseNumber"),
         new Date(x.getAs[Long]("payTime")),
         x.getAs[Long]("payChannel"),
@@ -143,7 +143,7 @@ object MKServerLog2Consumer extends Logging {
 
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
         val columns = Seq("actionType", "userId", "purchaseNumber", "payTime", "payChannel", "totalPrice", "date")
-        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        val df = spark.createDataFrame(rdd,schemaPay).toDF(columns: _*)
         logError("about to show df!")
         df.show()
         logError("about to write pay log to parquet!")
@@ -162,7 +162,7 @@ object MKServerLog2Consumer extends Logging {
           || x.getAs[String]("actionType").equals(ConsUtil.REFUND_CANCELLED_ACTION)
           || x.getAs[String]("actionType").equals(ConsUtil.REFUND_VERIFICATION_FAILED_ACTION))
       }).map(x =>
-        (x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
+        Row(x.getAs[String]("actionType"), x.getAs[Long]("studentId"),
           if (x.getAs[Long]("verifyTime") != null) new Date(x.getAs[Long]("verifyTime")) else null,
 //          new Date(x.getAs[Long]("verifyTime")),
           x.getAs[Long]("classId"),
@@ -175,6 +175,7 @@ object MKServerLog2Consumer extends Logging {
           case ConsUtil.refundInProgress => ConsUtil.refundInProgressStr
           case ConsUtil.onlineRefunded => ConsUtil.onlineRefundedStr
           case ConsUtil.workingInProgress => ConsUtil.workingInProgressStr
+          case others =>ConsUtil.toBeVerifyStr
         },
 //          new Date(x.getAs[Long]("verifyTime")))
           if (x.getAs[Long]("verifyTime") != null) new Date(x.getAs[Long]("verifyTime")) else new Date(x.getAs[Long]("updateTime")))
@@ -184,7 +185,7 @@ object MKServerLog2Consumer extends Logging {
       if (!rdd.isEmpty()) {
         val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
         val columns = Seq("actionType", "userId", "verifyTime", "classId", "purchaseNumber", "purchaseMoney", "refundMoney", "status", "statusName", "date")
-        val df = spark.createDataFrame(rdd).toDF(columns: _*)
+        val df = spark.createDataFrame(rdd,schemaRefund).toDF(columns:_*)
         logError("about to show df!")
 
         df.show()

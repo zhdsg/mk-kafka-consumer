@@ -48,7 +48,7 @@ object MKServerLogConsumer extends Logging {
     val ssc = new StreamingContext(sparkConf, Seconds(2))
     //Because of updateStateByKey requires this
     ssc.checkpoint("/tmp/root-server-log")
-    ssc.sparkContext.setLogLevel("ERROR")
+    ssc.sparkContext.setLogLevel("INFO")
 
     // Create direct kafka stream with brokers and topics
     val stream =
