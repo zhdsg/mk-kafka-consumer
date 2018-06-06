@@ -1,7 +1,7 @@
-
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import java.sql.Date
+import org.apache.spark.sql.functions.monotonically_increasing_id
 
 object MKStage2Client extends Logging {
 
@@ -10,7 +10,7 @@ object MKStage2Client extends Logging {
     val localDevEnv = config.getBoolean("localDev")
 
     // Template: Specify permanent storage Parquet file
-    val permanentStorage = config.getEnvironmentString("permanentStorage")
+    val storage = config.getEnvironmentString("storage.client")
 
 
     val sparkConf = new SparkConf()
@@ -32,16 +32,16 @@ object MKStage2Client extends Logging {
       "Mozilla/5.0 (Linux; Android 7.1.2; Redmi 4X Build/N2G47H; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044005 Mobile Safari/537.36 MicroMessenger/6.6.5.1280(0x26060536) NetType/WIFI Language/zh_CN"
     ))
 
-    //TODO: parse language from user agent
-    //TODO: parse network type from user agent
-    //TODO: better parse url
+    //DONE: parse language from user agent
+    //DONE: parse network type from user agent
+    //DONE: better parse url
     //TODO: parse location
     //TODO: compile the dimension table
     //TODO: compile the fact table
     //TODO: compile measures for dimension table
 
 
-    val cleanedUpData = spark.read.parquet(permanentStorage).as[UserLogRecord]
+    val cleanedUpData = PersistenceHelper.load(localDevEnv,spark,storage).as[UserLogRecord]
       .map(x => {
         UserLogRecord(
           x.date,
@@ -72,28 +72,25 @@ object MKStage2Client extends Logging {
     val dimensions = cleanedUpData
         .map(x=>{
           val u_a = ParsingHelper.parseUA(x.u_a)
-          Dimensions(
+          val parsedUrl = ParsingHelper.parseUrl(x.url)
+
+          Dimension(
+            0,
             x.date,
             x.appId,
-            x.action_name,
-            x.url,
-            x.e_a,
-            x.e_c,
-            x.e_n,
+            parsedUrl.url,
+            parsedUrl.isWechat,
             x.res,
-            x._ref,
             u_a.client.device.model.getOrElse("Unknown device"),
             u_a.client.os.family,
-            u_a.client.os.family+" "+u_a.client.os.major,
+            u_a.client.os.family+" "+u_a.client.os.major.getOrElse(""),
             u_a.language,
-            u_a.connection
+            u_a.connection,
+            x.action_name
           )
         })
-//        .map(x=>{
-//          if(!x.url.isEmpty)
-//            println(x.url)
-//          x
-//        })
+        .distinct()
+        .withColumn("dim_id",monotonically_increasing_id())
 
 
     dimensions.show(1000)
@@ -103,26 +100,29 @@ object MKStage2Client extends Logging {
 
 }
 
-final case class Dimensions(
+final case class Dimension(
+                             dim_id:Long,
                              date:Date,
                              appId:Long,
-                             action_name:String,
                              url:String,
-                             e_a:String,
-                             e_c:String,
-                             e_n:String,
-                             res:String,
-                             _ref:String,
+                             isWechat:Boolean,
+                             resolution:String,
                              device:String,
                              os:String,
                              osVersion:String,
                              language:String,
-                             netType:String
+                             network:String,
+                             actionName:String
                           )
+
+final case class SessionFact(
+                            dim_fk:Long,
+                            userId:String,
+                            sessionId:String,
+                            )
 
 final case class UserLogRecord(
                                 date:Date,
-
                                 _id:String,
                                 //_idn:String,
                                 //_idts:String,
