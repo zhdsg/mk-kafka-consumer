@@ -15,6 +15,7 @@ if(localDev){
     "org.apache.spark" %% "spark-sql" % "2.2.0",
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
     "org.apache.spark" %% "spark-hive" % sparkVersion,
+    "org.uaparser" %% "uap-scala" % "0.2.0",
     "com.typesafe" % "config" % "1.3.3"
   )
 }else {
@@ -24,6 +25,7 @@ if(localDev){
     "org.apache.spark" %% "spark-sql" % "2.2.0",
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
     "org.apache.spark" %% "spark-hive" % sparkVersion,
+    "org.uaparser" %% "uap-scala" % "0.2.0",
     "com.typesafe" % "config" % "1.3.3"
   )
 }

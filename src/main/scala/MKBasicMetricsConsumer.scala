@@ -22,9 +22,9 @@ object MKBasicMetricsConsumer extends Logging {
     val config = new ConfigHelper(this)
     val localDevEnv = config.getBoolean("localDev")
     val processFromStart = config.getBoolean("processFromStart")
-    val permanentStorage = config.getString("permanentStorage")
-    val hiveStorage = config.getString("hiveStorage")
-    val backupKafkaTopic = String.format( config.getString("kafka.backupKafkaTopic"),config.getString("environment"))
+    val permanentStorage = config.getEnvironmentString("permanentStorage")
+    val hiveStorage = config.getEnvironmentString("hiveStorage")
+    val backupKafkaTopic = config.getEnvironmentString("kafka.backupKafkaTopic")
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> (if (localDevEnv) config.getString("kafka.server_localDev") else config.getString("kafka.server")),
@@ -35,12 +35,15 @@ object MKBasicMetricsConsumer extends Logging {
       "enable.auto.commit" -> (false: java.lang.Boolean)
     )
 
-    val configuredTopic = String.format(config.getString("kafka.topic"),config.getString("environment"))
+    val configuredTopic = config.getEnvironmentString("kafka.topic")
     val topics = Array(configuredTopic)
 
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf()
       .setAppName("MKKafkaConsumer")
+      if(!localDevEnv) {
+        sparkConf.set("spark.sql.warehouse.dir", "/user/hive/warehouse")
+      }
     if(localDevEnv) sparkConf.setMaster("local")
 
     val ssc = new StreamingContext(sparkConf, Seconds(2))
@@ -56,7 +59,7 @@ object MKBasicMetricsConsumer extends Logging {
       Subscribe[String, String](topics, kafkaParams)
     )
 
-    val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf)
+    val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf,!localDevEnv)
 
     val schema = StructType(
       StructField("date", DateType, nullable = true) ::
@@ -81,7 +84,7 @@ object MKBasicMetricsConsumer extends Logging {
 
     val structuredMessages = messages
       .transform(rdd=> {
-      val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+      val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf,!localDevEnv)
       //Transform String rdd into structured DataFrame by parsing JSON
       import spark.implicits._
       val ds = spark.createDataset[String](rdd)
@@ -163,7 +166,7 @@ object MKBasicMetricsConsumer extends Logging {
 
     sessionsWithAge
       .foreachRDD(rdd=>{
-        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf,!localDevEnv)
         val columns = Seq("date", "combinedId", "earliestDate", "sessionLength","sessionCount")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         PersistenceHelper.saveToParquetStorage(df,permanentStorage,"date")
@@ -206,7 +209,7 @@ object MKBasicMetricsConsumer extends Logging {
           (x._1,x._2)
         })
       .transform(rdd=>{
-        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf,!localDevEnv)
         val columns = Seq("date", "combinedId")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         var df2 = df
@@ -230,7 +233,7 @@ object MKBasicMetricsConsumer extends Logging {
         (x._1,x._2)
       })
       .transform(rdd=>{
-        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf,!localDevEnv)
         val columns = Seq("date", "combinedId")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         var df2 = df
@@ -254,7 +257,7 @@ object MKBasicMetricsConsumer extends Logging {
         (x._1,x._2,x._3)
       })
       .transform(rdd=>{
-        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf,!localDevEnv)
         val columns = Seq("date", "combinedId","age")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         df
@@ -277,7 +280,7 @@ object MKBasicMetricsConsumer extends Logging {
         (x._1,x._2,x._3)
       })
       .transform(rdd=>{
-        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf,!localDevEnv)
         val columns = Seq("date", "combinedId","age")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         df
@@ -300,7 +303,7 @@ object MKBasicMetricsConsumer extends Logging {
         (x._1,x._2,x._3)
       })
       .transform(rdd=>{
-        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf,!localDevEnv)
         val columns = Seq("date", "combinedId","age")
         val df = spark.createDataFrame(rdd).toDF(columns: _*)
         df
