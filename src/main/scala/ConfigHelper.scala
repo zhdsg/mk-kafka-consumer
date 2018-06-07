@@ -21,6 +21,10 @@ class ConfigHelper(source: AnyRef) {
 
   }
 
+  def getEnvironmentString(s:String): String = {
+    String.format(getString(s),getString("environment"))
+  }
+
   def hasPath(s: String): Boolean = config.hasPath(path(s))
 
   def hasPathOrNull(s: String): Boolean = config.hasPathOrNull(path(s))
