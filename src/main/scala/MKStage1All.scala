@@ -122,13 +122,17 @@ object MKStage1All extends Logging {
     streamServer
       .map(_.value)
       .filter(_.length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET)
-      .map(_.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET))
+      .map(x=>(
+        x.substring(0,ConsUtil.MK_SERVER_LOG_ROW_OFFSET),
+        x.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET))
+      )
       .foreachRDD(rdd => {
         if(!rdd.isEmpty()) {
           val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
           import spark.implicits._
-          val ds = spark.createDataset[String](rdd)
-          val df = spark.read.json(ds)
+          val ds = spark.createDataset[String](rdd.values)
+
+          val df = spark.read.json(ds).withColumn("date", to_date($"rdd.keys", "yyyy-mm-dd").cast("timestamp"))
 
           val payments = df.filter(x => {
             x.getAs[String]("actionType").equals(ConsUtil.PAY_ACTION)

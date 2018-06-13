@@ -118,7 +118,7 @@ final case class Dimension(
 final case class SessionFact(
                             dim_fk:Long,
                             userId:String,
-                            sessionId:String,
+                            sessionId:String
                             )
 
 final case class UserLogRecord(
