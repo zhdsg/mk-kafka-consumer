@@ -59,7 +59,7 @@ object PersistenceHelper {
     }else {
 
       if (spark != null) {
-        spark.sql("DROP TABLE IF EXISTS " + file)
+        spark.sql("DROP TABLE IF EXISTS default." + file)
       }
     }
   }
