@@ -1,11 +1,12 @@
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import java.sql.Date
-import org.apache.spark.sql.functions.{last}
+import org.apache.spark.sql.functions.last
 
 object MKStage2Client extends Logging {
 
   def main(args: Array[String]) {
+    val startTime  = System.nanoTime()
     val config = new ConfigHelper(this)
     val processFromStart = config.getBoolean("processFromStart")
     val localDevEnv = config.getBoolean("localDev")
@@ -64,6 +65,7 @@ object MKStage2Client extends Logging {
           //x.wma
         )
       })
+
 
     val sessions = cleanedUpData
       .map(x => {
@@ -149,6 +151,7 @@ object MKStage2Client extends Logging {
 
 
     spark.stop()
+    println("Execution duration "+((System.nanoTime()-startTime)/1000000000.0))
   }
 
 }
