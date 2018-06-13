@@ -59,12 +59,16 @@ object PersistenceHelper {
     }else {
 
       if (spark != null) {
-        spark.sql("DROP TABLE IF EXISTS parquet.`" + file + "`")
+        spark.sql("DROP TABLE IF EXISTS " + file)
       }
     }
   }
 
   def load(localEnvironment: Boolean, spark: SparkSession, table: String): DataFrame = {
-    spark.read.parquet(getParquetStorage(table))
+    if(localEnvironment) {
+      spark.read.parquet(getParquetStorage(table))
+    }else{
+      spark.read.table(table)
+    }
   }
 }
