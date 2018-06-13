@@ -22,4 +22,8 @@ object SparkSessionSingleton {
     instance
   }
 
+  def getInstanceIfExists():SparkSession ={
+    instance
+  }
+
 }

@@ -1,12 +1,14 @@
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import java.sql.Date
-import org.apache.spark.sql.functions.monotonically_increasing_id
+import org.apache.spark.sql.functions.last
 
 object MKStage2Client extends Logging {
 
   def main(args: Array[String]) {
+    val startTime  = System.nanoTime()
     val config = new ConfigHelper(this)
+    val processFromStart = config.getBoolean("processFromStart")
     val localDevEnv = config.getBoolean("localDev")
 
     // Template: Specify permanent storage Parquet file
@@ -23,25 +25,20 @@ object MKStage2Client extends Logging {
 
     val spark = SparkSessionSingleton.getInstance(sparkConf, !localDevEnv)
 
+    if (localDevEnv) {
+      spark.sparkContext.setLogLevel("ERROR")
+    }
+
     import spark.implicits._
 
-    println(ParsingHelper.parseUA(
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 11_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E216 MicroMessenger/6.6.5 NetType/4G Language/zh_CN"
-    ))
-    println(ParsingHelper.parseUA(
-      "Mozilla/5.0 (Linux; Android 7.1.2; Redmi 4X Build/N2G47H; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044005 Mobile Safari/537.36 MicroMessenger/6.6.5.1280(0x26060536) NetType/WIFI Language/zh_CN"
-    ))
 
-    //DONE: parse language from user agent
-    //DONE: parse network type from user agent
-    //DONE: better parse url
     //TODO: parse location
     //TODO: compile the dimension table
     //TODO: compile the fact table
     //TODO: compile measures for dimension table
 
 
-    val cleanedUpData = PersistenceHelper.load(localDevEnv,spark,storage).as[UserLogRecord]
+    val cleanedUpData = PersistenceHelper.load(localDevEnv, spark, storage).as[UserLogRecord]
       .map(x => {
         UserLogRecord(
           x.date,
@@ -69,81 +66,136 @@ object MKStage2Client extends Logging {
         )
       })
 
-    val dimensions = cleanedUpData
-        .map(x=>{
-          val u_a = ParsingHelper.parseUA(x.u_a)
-          val parsedUrl = ParsingHelper.parseUrl(x.url)
 
-          Dimension(
-            0,
-            x.date,
-            x.appId,
-            parsedUrl.url,
-            parsedUrl.isWechat,
-            x.res,
-            u_a.client.device.model.getOrElse("Unknown device"),
-            u_a.client.os.family,
-            u_a.client.os.family+" "+u_a.client.os.major.getOrElse(""),
-            u_a.language,
-            u_a.connection,
-            x.action_name
-          )
-        })
-        .distinct()
-        .withColumn("dim_id",monotonically_increasing_id())
+    val sessions = cleanedUpData
+      .map(x => {
+        val u_a = ParsingHelper.parseUA(x.u_a)
+        val parsedUrl = ParsingHelper.parseUrl(x.url)
+
+        DimensionsWithId(
+          x.date,
+          x.appId,
+          parsedUrl.isWechat,
+          x.res,
+          u_a.client.device.model.getOrElse("Unknown device"),
+          u_a.client.os.family,
+          u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
+          u_a.language,
+          u_a.connection,
+          u_a.client.userAgent.family,
+          x._id
+        )
+      })
+      .groupBy("date", "id")
+      .agg(
+        last("appId", ignoreNulls = true).alias("appId"),
+        last("isWechat", ignoreNulls = true).alias("isWechat"),
+        last("resolution", ignoreNulls = true).alias("resolution"),
+        last("device", ignoreNulls = true).alias("device"),
+        last("os", ignoreNulls = true).alias("os"),
+        last("osVersion", ignoreNulls = true).alias("osVersion"),
+        last("language", ignoreNulls = true).alias("language"),
+        last("network", ignoreNulls = true).alias("network"),
+        last("browser", ignoreNulls = true).alias("browser")
+      )
+      .distinct()
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
+      .count()
+      .withColumnRenamed("count", "sessions")
+    sessions.show(1000)
+    PersistenceHelper.save(localDevEnv,sessions.toDF(),config.getEnvironmentString("result.client.sessions"),"date",processFromStart)
+
+    val dau = cleanedUpData
+      .filter(x => {
+        (x.uid != null) && (!x.uid.isEmpty)
+      })
+      .map(x => {
+        val u_a = ParsingHelper.parseUA(x.u_a)
+        val parsedUrl = ParsingHelper.parseUrl(x.url)
+
+        DimensionsWithId(
+          x.date,
+          x.appId,
+          parsedUrl.isWechat,
+          x.res,
+          u_a.client.device.model.getOrElse("Unknown device"),
+          u_a.client.os.family,
+          u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
+          u_a.language,
+          u_a.connection,
+          u_a.client.userAgent.family,
+          x.uid
+        )
+      })
+      .groupBy("date", "id")
+      .agg(
+        last("appId", ignoreNulls = true).alias("appId"),
+        last("isWechat", ignoreNulls = true).alias("isWechat"),
+        last("resolution", ignoreNulls = true).alias("resolution"),
+        last("device", ignoreNulls = true).alias("device"),
+        last("os", ignoreNulls = true).alias("os"),
+        last("osVersion", ignoreNulls = true).alias("osVersion"),
+        last("language", ignoreNulls = true).alias("language"),
+        last("network", ignoreNulls = true).alias("network"),
+        last("browser", ignoreNulls = true).alias("browser")
+      )
+      .distinct()
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
+      .count()
+      .withColumnRenamed("count", "dau")
+    dau.show(1000)
+    PersistenceHelper.save(localDevEnv,dau.toDF(),config.getEnvironmentString("result.client.dau"),"date",processFromStart)
 
 
-    dimensions.show(1000)
+
+
 
     spark.stop()
+    println("Execution duration "+((System.nanoTime()-startTime)/1000000000.0))
   }
 
 }
 
-final case class Dimension(
-                             dim_id:Long,
-                             date:Date,
-                             appId:Long,
-                             url:String,
-                             isWechat:Boolean,
-                             resolution:String,
-                             device:String,
-                             os:String,
-                             osVersion:String,
-                             language:String,
-                             network:String,
-                             actionName:String
-                          )
+case class DimensionsWithId(
+                             date: Date,
+                             appId: Long,
+                             isWechat: Boolean,
+                             resolution: String,
+                             device: String,
+                             os: String,
+                             osVersion: String,
+                             language: String,
+                             network: String,
+                             browser: String,
+                             id: String
+                           )
 
-final case class SessionFact(
-                            dim_fk:Long,
-                            userId:String,
-                            sessionId:String
-                            )
+//case class SessionsMeasurements (dimensions: Dimensions,sessionId:String) extends Dimensions()
+
 
 final case class UserLogRecord(
-                                date:Date,
-                                _id:String,
+                                date: Date,
+                                _id: String,
                                 //_idn:String,
                                 //_idts:String,
                                 //_idvc:String,
-                                _ref:String,
+                                _ref: String,
                                 //_refts:Long,
                                 //_viewts:String,
-                                action_name:String,
+                                action_name: String,
                                 //ag:String,
-                                appId:Long,
+                                appId: Long,
                                 //cookie:String,
                                 //data:String,
                                 //dir:String,
-                                e_a:String,
-                                e_c:String,
-                                e_n:String,
+                                e_a: String,
+                                e_c: String,
+                                e_n: String,
                                 //e_v:String,
                                 //fla:String,
                                 //gears:String,
                                 //gt_ms:Long,
-                                ip:String,
+                                ip: String,
                                 //java:String,
                                 //pdf:String,
                                 //pv_id:String,
@@ -151,12 +203,12 @@ final case class UserLogRecord(
                                 //r:String,
                                 //realp:String,
                                 //rec:Long,
-                                res:String,
-                                t:Long,
-                                u_a:String,
-                                uid:String,
-                                url:String,
-                                urlref:String
+                                res: String,
+                                t: Long,
+                                u_a: String,
+                                uid: String,
+                                url: String,
+                                urlref: String
                                 //wma:String
 
                               )
