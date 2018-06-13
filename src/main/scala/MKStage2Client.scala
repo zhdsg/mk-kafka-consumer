@@ -6,7 +6,7 @@ import org.apache.spark.sql.functions.last
 object MKStage2Client extends Logging {
 
   def main(args: Array[String]) {
-    val startTime  = System.nanoTime()
+    val startTime = System.nanoTime()
     val config = new ConfigHelper(this)
     val processFromStart = config.getBoolean("processFromStart")
     val localDevEnv = config.getBoolean("localDev")
@@ -33,46 +33,14 @@ object MKStage2Client extends Logging {
 
 
     //TODO: parse location
-    //TODO: compile the dimension table
-    //TODO: compile the fact table
-    //TODO: compile measures for dimension table
 
 
     val cleanedUpData = PersistenceHelper.load(localDevEnv, spark, storage).as[UserLogRecord]
       .map(x => {
-        UserLogRecord(
-          x.date,
-          x._id,
-          //x._idn, x._idts, x._idvc,
-          ParsingHelper.decodeUrl(x._ref),
-          //x._refts, x._viewts,
-          ParsingHelper.decodeUrl(x.action_name),
-          //x.ag,
-          x.appId,
-          //x.cookie, x.data, x.dir,
-          x.e_a,
-          x.e_c,
-          ParsingHelper.decodeUrl(x.e_n),
-          //x.e_v, x.fla, x.gears, x.gt_ms,
-          x.ip,
-          //x.java, x.pdf, x.pv_id, x.qt, x.r, x.realp, x.rec,
-          x.res,
-          x.t,
-          x.u_a,
-          x.uid,
-          ParsingHelper.decodeUrl(x.url),
-          ParsingHelper.decodeUrl(x.urlref)
-          //x.wma
-        )
-      })
-
-
-    val sessions = cleanedUpData
-      .map(x => {
         val u_a = ParsingHelper.parseUA(x.u_a)
-        val parsedUrl = ParsingHelper.parseUrl(x.url)
+        val parsedUrl = ParsingHelper.parseUrl(ParsingHelper.decodeUrl(x.url))
 
-        DimensionsWithId(
+        ParsedUserLog(
           x.date,
           x.appId,
           parsedUrl.isWechat,
@@ -83,6 +51,28 @@ object MKStage2Client extends Logging {
           u_a.language,
           u_a.connection,
           u_a.client.userAgent.family,
+          x._id,
+          x.ip,
+          x.uid,
+          parsedUrl.url,
+          ParsingHelper.decodeUrl(x.action_name)
+        )
+      })
+      .persist()
+
+    val sessions = cleanedUpData
+      .map(x => {
+        DimensionsWithId(
+          x.date,
+          x.appId,
+          x.isWechat,
+          x.resolution,
+          x.device,
+          x.os,
+          x.osVersion,
+          x.language,
+          x.network,
+          x.browser,
           x._id
         )
       })
@@ -103,27 +93,25 @@ object MKStage2Client extends Logging {
       .count()
       .withColumnRenamed("count", "sessions")
     sessions.show(1000)
-    PersistenceHelper.save(localDevEnv,sessions.toDF(),config.getEnvironmentString("result.client.sessions"),"date",processFromStart)
+    PersistenceHelper.save(localDevEnv, sessions.toDF(), config.getEnvironmentString("result.client.sessions"), "date", processFromStart)
 
     val dau = cleanedUpData
       .filter(x => {
         (x.uid != null) && (!x.uid.isEmpty)
       })
       .map(x => {
-        val u_a = ParsingHelper.parseUA(x.u_a)
-        val parsedUrl = ParsingHelper.parseUrl(x.url)
 
         DimensionsWithId(
           x.date,
           x.appId,
-          parsedUrl.isWechat,
-          x.res,
-          u_a.client.device.model.getOrElse("Unknown device"),
-          u_a.client.os.family,
-          u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
-          u_a.language,
-          u_a.connection,
-          u_a.client.userAgent.family,
+          x.isWechat,
+          x.resolution,
+          x.device,
+          x.os,
+          x.osVersion,
+          x.language,
+          x.network,
+          x.browser,
           x.uid
         )
       })
@@ -144,14 +132,11 @@ object MKStage2Client extends Logging {
       .count()
       .withColumnRenamed("count", "dau")
     dau.show(1000)
-    PersistenceHelper.save(localDevEnv,dau.toDF(),config.getEnvironmentString("result.client.dau"),"date",processFromStart)
-
-
-
+    PersistenceHelper.save(localDevEnv, dau.toDF(), config.getEnvironmentString("result.client.dau"), "date", processFromStart)
 
 
     spark.stop()
-    println("Execution duration "+((System.nanoTime()-startTime)/1000000000.0))
+    println("Execution duration " + ((System.nanoTime() - startTime) / 1000000000.0))
   }
 
 }
@@ -170,7 +155,23 @@ case class DimensionsWithId(
                              id: String
                            )
 
-//case class SessionsMeasurements (dimensions: Dimensions,sessionId:String) extends Dimensions()
+case class ParsedUserLog(
+                          date: Date,
+                          appId: Long,
+                          isWechat: Boolean,
+                          resolution: String,
+                          device: String,
+                          os: String,
+                          osVersion: String,
+                          language: String,
+                          network: String,
+                          browser: String,
+                          _id: String,
+                          ip: String,
+                          uid: String,
+                          url: String,
+                          action_name: String
+                        )
 
 
 final case class UserLogRecord(
