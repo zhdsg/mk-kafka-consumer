@@ -1,5 +1,6 @@
-import org.apache.spark.sql.SparkSession
+import java.util.Properties
 
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.DataFrame
 
 /**
@@ -70,5 +71,23 @@ object PersistenceHelper {
     }else{
       spark.read.table(table)
     }
+  }
+
+  def loadFromMysql(localEnvironment: Boolean,spark: SparkSession, table: String): DataFrame = {
+    var mysqlUser,mysqlPass,mysqlServer = ""
+    if(localEnvironment){
+      mysqlUser = config.getString("mysql.user_dev")
+      mysqlPass = config.getString("mysql.pass_dev")
+      mysqlServer = config.getString("mysql.server_dev")
+    }
+    else{
+      mysqlUser = config.getString("mysql.user_prod")
+      mysqlPass = config.getString("mysql.pass_prod")
+      mysqlServer = config.getString("mysql.server_prod")
+    }
+    val connectionProperties = new Properties()
+    connectionProperties.put("user", mysqlUser)
+    connectionProperties.put("password", mysqlPass)
+    spark.read.jdbc(mysqlServer,table,connectionProperties)
   }
 }
