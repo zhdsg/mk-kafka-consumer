@@ -1,5 +1,4 @@
 import java.sql.Date
-
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.last
@@ -33,42 +32,51 @@ object MKStage2ServerRevenue  extends Logging{
 
   import spark.implicits._
   //TODO: load raw data
-  val records = PersistenceHelper.load(localDevEnv, spark, storage).as[Payment]
-  .map(x=>(
-    x.payChannel match {
-      case ConsUtil.ALIPAY_IMMEDIATE => ConsUtil.ALIPAY_IMMEDIATE_STR
-      case ConsUtil.ALIPAY_QRCODE => ConsUtil.ALIPAY_QRCODE_STR
-      case ConsUtil.WEIXIN_JS => ConsUtil.WEIXIN_JS_STR
-      case ConsUtil.WXM_PAY => ConsUtil.WXM_PAY_STR
-      case ConsUtil.UNION_POS => ConsUtil.UNION_POS_STR
-      case ConsUtil.BILL_POS => ConsUtil.BILL_POS_STR
-      case ConsUtil.POS => ConsUtil.POS_STR
-      case ConsUtil.OFFLINE => ConsUtil.OFFLINE_STR
-    },
-    x.payPrice / 100,
-    new Date(x.payTime),
-    x.date,
-    x.purchaseNumber
-  )).groupBy("purchaseNumber").agg(
+  val records = PersistenceHelper.load(localDevEnv, spark, storage).as[PaymentRaw]
+  .map(x=> {
+    PaymentAgg(
+      x.purchaseNumber,
+      x.totalPrice / 100,
+      x.payPrice / 100,
+      x.payChannel match {
+        case ConsUtil.ALIPAY_IMMEDIATE => ConsUtil.ALIPAY_IMMEDIATE_STR
+        case ConsUtil.ALIPAY_QRCODE => ConsUtil.ALIPAY_QRCODE_STR
+        case ConsUtil.WEIXIN_JS => ConsUtil.WEIXIN_JS_STR
+        case ConsUtil.WXM_PAY => ConsUtil.WXM_PAY_STR
+        case ConsUtil.UNION_POS => ConsUtil.UNION_POS_STR
+        case ConsUtil.BILL_POS => ConsUtil.BILL_POS_STR
+        case ConsUtil.POS => ConsUtil.POS_STR
+        case ConsUtil.OFFLINE => ConsUtil.OFFLINE_STR
+      },
+      if (x.payTime != null) new Date(x.payTime) else Date.valueOf(x.date)
+    )
+  }).groupBy("purchaseNumber").agg(
     last("payChannel", ignoreNulls = true).alias("payChannel"),
     last("payPrice", ignoreNulls = true).alias("payPrice"),
-    last("payTime", ignoreNulls = true).alias("date"),
-    last("date", ignoreNulls = true).alias("logDate")
+    last("totalPrice", ignoreNulls = true).alias("totalPrice"),
+    last("date", ignoreNulls = true).alias("date")
   ).groupBy("date","payChannel").agg(
     last("purchaseNumber", ignoreNulls = true).alias("purchaseNumber"),
-    last("logDate", ignoreNulls = true).alias("logDate"),
-    sum("payPrice").alias("totalPrice")
+    sum("payPrice").alias("payPrice"),
+    sum("totalPrice").alias("totalPrice")
   )
   records.show()
   PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("finance.revenue"), "date", processFromStart)
-  
+
 }
 
-final case class Payment(
+final case class PaymentRaw(
                         purchaseNumber:String,
                         totalPrice:Long,
                         payPrice:Long,
                         payChannel:Long,
                         payTime:Long,
-                        date:Date
+                        date:String
                         )
+final case class PaymentAgg(
+                             purchaseNumber:String,
+                             totalPrice:Long,
+                             payPrice:Long,
+                             payChannel:String,
+                             date:Date
+                           )
