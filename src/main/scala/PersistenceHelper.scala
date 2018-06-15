@@ -1,6 +1,5 @@
 import org.apache.spark.sql.SparkSession
 import java.util.Properties
-
 import org.apache.spark.sql.DataFrame
 
 /**
@@ -16,38 +15,75 @@ object PersistenceHelper {
   connectionProperties.put("user", mysqlUser)
   connectionProperties.put("password", mysqlPass)
 
-  def getParquetStorage(hiveStorage:String):String = {
+  def getParquetStorage(hiveStorage: String): String = {
     "tmp/" + hiveStorage + ".parquet"
   }
 
-  def saveToParquetStorage(dataFrame: DataFrame, file: String, partitionBy:String = null, overwrite: Boolean = false): Unit = {
+  def saveToParquetStorage(dataFrame: DataFrame, file: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
     val writer = dataFrame
       .write
       .format("parquet")
-    val writerPartitioned = if(partitionBy == null) writer else writer.partitionBy(partitionBy)
+    val writerPartitioned = if (partitionBy == null) writer else writer.partitionBy(partitionBy)
     val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
     writerMode.save(file)
+    if(config.getBoolean("verifySave")) {
+      val spark = SparkSessionSingleton.getInstanceIfExists()
+      if (spark != null) {
+        spark.sql("SELECT * FROM parquet.`" + file + "`").show(1000)
+      }
+    }
   }
 
-  def saveToHive(dataFrame: DataFrame, table: String, partitionBy:String = null, overwrite: Boolean = false): Unit = {
+  def saveToHive(dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
     val writer = dataFrame
       .write
       .format("parquet")
-    val writerPartitioned = if(partitionBy == null) writer else writer.partitionBy(partitionBy)
+    val writerPartitioned = if (partitionBy == null) writer else writer.partitionBy(partitionBy)
     val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
     writerMode.saveAsTable(table)
   }
 
-  def save(localEnvironment:Boolean,dataFrame: DataFrame, table: String, partitionBy:String = null, overwrite: Boolean = false): Unit =
-  {
-    if(localEnvironment){
-      saveToParquetStorage(dataFrame,getParquetStorage(table),partitionBy,overwrite)
-    }else{
-      saveToHive(dataFrame,table,partitionBy,overwrite)
+  def save(localEnvironment: Boolean, dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
+    if (localEnvironment) {
+      saveToParquetStorage(dataFrame, getParquetStorage(table), null, overwrite)
+    } else {
+      saveToHive(dataFrame, table, partitionBy, overwrite)
     }
   }
 
-  def load(localEnvironment:Boolean,spark:SparkSession,table:String): DataFrame ={
-    spark.read.parquet(getParquetStorage(table))
+  def saveAndShow(localEnvironment: Boolean, showResults:Boolean, dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
+    val toShow = if(showResults) dataFrame.persist() else dataFrame
+    if(showResults) {
+      toShow.show(10000)
+    }
+    save(localEnvironment,toShow,table,partitionBy,overwrite)
+  }
+
+  def delete(localEnvironment:Boolean, table:String):Unit= {
+    val file = if(localEnvironment){
+      getParquetStorage(table)
+    }else{
+      table
+    }
+
+    val spark = SparkSessionSingleton.getInstanceIfExists()
+    if(localEnvironment){
+      val hadoopConf = spark.sparkContext.hadoopConfiguration
+      val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
+      hdfs.delete(new org.apache.hadoop.fs.Path(file), true)
+    }else {
+
+      if (spark != null) {
+        spark.sql("DROP TABLE IF EXISTS default." + file)
+      }
+    }
+  }
+
+  def load(localEnvironment: Boolean, spark: SparkSession, table: String): DataFrame = {
+    if(localEnvironment) {
+      spark.read.parquet(getParquetStorage(table))
+    }else{
+      spark.read.table(table)
+    }
   }
 }

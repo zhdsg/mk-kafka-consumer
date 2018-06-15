@@ -1,4 +1,7 @@
 
+import java.sql.Date
+import java.text.SimpleDateFormat
+
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
@@ -73,30 +76,9 @@ object MKStage1All extends Logging {
     val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf, !localDevEnv)
 
     if (processFromStart) { // Clean up storage if processing from start
-      val nullSchema = StructType(
-        Nil
-      )
-      PersistenceHelper.save(
-        localDevEnv,
-        sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], nullSchema),
-        storageClient,
-        partitionBy = null,
-        overwrite = true
-      )
-      PersistenceHelper.save(
-        localDevEnv,
-        sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], nullSchema),
-        storageServerPayment,
-        partitionBy = null,
-        overwrite = true
-      )
-      PersistenceHelper.save(
-        localDevEnv,
-        sparkSession.createDataFrame(sparkSession.sparkContext.emptyRDD[Row], nullSchema),
-        storageServerRefund,
-        partitionBy = null,
-        overwrite = true
-      )
+      PersistenceHelper.delete(localDevEnv,storageClient)
+      PersistenceHelper.delete(localDevEnv,storageServerPayment)
+      PersistenceHelper.delete(localDevEnv,storageServerRefund)
     }
 
     streamClient
@@ -122,7 +104,9 @@ object MKStage1All extends Logging {
     streamServer
       .map(_.value)
       .filter(_.length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET)
-      .map(_.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET))
+      .map(x=>(
+        "{\"date\":\"".concat(x.substring(0,ConsUtil.MK_SERVER_LOG_DATE_OFFSET)).concat("\",").concat(x.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET+1))
+        ))
       .foreachRDD(rdd => {
         if(!rdd.isEmpty()) {
           val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
