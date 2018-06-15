@@ -1,9 +1,9 @@
+package com.zhimo.datahub.etl.stage2
+import java.sql.Date
+import com.zhimo.datahub.common.{ConfigHelper, ParsingHelper, PersistenceHelper, SparkSessionSingleton}
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import java.sql.Date
-
 import org.apache.spark.sql.functions.{date_add, datediff, last, min}
-import org.apache.spark.sql.types.LongType
 
 object MKStage2Client extends Logging {
 
@@ -97,7 +97,7 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "sessions")
-    PersistenceHelper.saveAndShow(localDevEnv, showResults, sessions.toDF(), config.getEnvironmentString("result.client.sessions"), "date", processFromStart)
+    //PersistenceHelper.saveAndShow(localDevEnv, showResults, sessions.toDF(), config.getEnvironmentString("result.client.sessions"), "date", processFromStart)
 
     val users = cleanedUpData
       .filter(x => {
@@ -137,7 +137,7 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "dau")
-    PersistenceHelper.saveAndShow(localDevEnv, showResults, dau.toDF(), config.getEnvironmentString("result.client.dau"), "date", processFromStart)
+    //PersistenceHelper.saveAndShow(localDevEnv, showResults, dau.toDF(), config.getEnvironmentString("result.client.dau"), "date", processFromStart)
 
     var usersForXau = users
     for (days <- 1 to 7) {
@@ -150,7 +150,7 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "wau")
-    PersistenceHelper.saveAndShow(localDevEnv, showResults, wau.toDF(), config.getEnvironmentString("result.client.wau"), "date", processFromStart)
+    //PersistenceHelper.saveAndShow(localDevEnv, showResults, wau.toDF(), config.getEnvironmentString("result.client.wau"), "date", processFromStart)
 
     for (days <- 8 to 30) {
       usersForXau = usersForXau.union(users
@@ -162,7 +162,7 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "mau")
-    PersistenceHelper.saveAndShow(localDevEnv, showResults, mau.toDF(), config.getEnvironmentString("result.client.mau"), "date", processFromStart)
+    //PersistenceHelper.saveAndShow(localDevEnv, showResults, mau.toDF(), config.getEnvironmentString("result.client.mau"), "date", processFromStart)
 
     val usersOnly = users
       .drop("appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
@@ -190,7 +190,8 @@ object MKStage2Client extends Logging {
         .withColumnRenamed("count","current")
         .join(d1returning,"date")
         .withColumn("d1retention",$"returning"/$"current")
-    PersistenceHelper.saveAndShow(localDevEnv,showResults,d1retention.toDF(),config.getEnvironmentString("result.client.d1retention"),"date",processFromStart)
+        .drop("current","returning")
+    //PersistenceHelper.saveAndShow(localDevEnv,showResults,d1retention.toDF(),config.getEnvironmentString("result.client.d1retention"),"date",processFromStart)
 
 
     val d7returning = usersOnly
@@ -210,7 +211,8 @@ object MKStage2Client extends Logging {
       .withColumnRenamed("count","current")
       .join(d7returning,"date")
       .withColumn("d7retention",$"returning"/$"current")
-    PersistenceHelper.saveAndShow(localDevEnv,showResults,d7retention.toDF(),config.getEnvironmentString("result.client.d7retention"),"date",processFromStart)
+      .drop("current","returning")
+    //PersistenceHelper.saveAndShow(localDevEnv,showResults,d7retention.toDF(),config.getEnvironmentString("result.client.d7retention"),"date",processFromStart)
 
 
     val d30returning = usersOnly
@@ -230,7 +232,10 @@ object MKStage2Client extends Logging {
       .withColumnRenamed("count","current")
       .join(d30returning,"date")
       .withColumn("d30retention",$"returning"/$"current")
-    PersistenceHelper.saveAndShow(localDevEnv,showResults,d30retention.toDF(),config.getEnvironmentString("result.client.d30retention"),"date",processFromStart)
+      .drop("current","returning")
+
+    d1retention.join(d7retention,Seq("date"),"full").show(1000)
+    //PersistenceHelper.saveAndShow(localDevEnv,showResults,d30retention.toDF(),config.getEnvironmentString("result.client.d30retention"),"date",processFromStart)
 
 
 
