@@ -1,5 +1,5 @@
 import org.apache.spark.sql.SparkSession
-
+import java.util.Properties
 import org.apache.spark.sql.DataFrame
 
 /**
@@ -7,6 +7,13 @@ import org.apache.spark.sql.DataFrame
   */
 object PersistenceHelper {
   val config = new ConfigHelper(this)
+  val mysqlUser = config.getString("mysql.user")
+  val mysqlPass = config.getString("mysql.pass")
+  val mysqlServer = config.getString("mysql.server")
+  val mysqlServerLogTable = config.getString("mysql.serverLogTable")
+  val connectionProperties = new Properties()
+  connectionProperties.put("user", mysqlUser)
+  connectionProperties.put("password", mysqlPass)
 
   def getParquetStorage(hiveStorage: String): String = {
     "tmp/" + hiveStorage + ".parquet"
@@ -42,6 +49,14 @@ object PersistenceHelper {
     } else {
       saveToHive(dataFrame, table, partitionBy, overwrite)
     }
+  }
+
+  def saveAndShow(localEnvironment: Boolean, showResults:Boolean, dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
+    val toShow = if(showResults) dataFrame.persist() else dataFrame
+    if(showResults) {
+      toShow.show(10000)
+    }
+    save(localEnvironment,toShow,table,partitionBy,overwrite)
   }
 
   def delete(localEnvironment:Boolean, table:String):Unit= {
