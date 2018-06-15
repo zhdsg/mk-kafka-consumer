@@ -1,7 +1,9 @@
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import java.sql.Date
-import org.apache.spark.sql.functions.last
+
+import org.apache.spark.sql.functions.{date_add, datediff, last, min}
+import org.apache.spark.sql.types.LongType
 
 object MKStage2Client extends Logging {
 
@@ -10,6 +12,7 @@ object MKStage2Client extends Logging {
     val config = new ConfigHelper(this)
     val processFromStart = config.getBoolean("processFromStart")
     val localDevEnv = config.getBoolean("localDev")
+    val showResults = config.getBoolean("showResults")
 
     // Template: Specify permanent storage Parquet file
     val storage = config.getEnvironmentString("storage.client")
@@ -28,6 +31,8 @@ object MKStage2Client extends Logging {
     if (localDevEnv) {
       spark.sparkContext.setLogLevel("ERROR")
     }
+
+
 
     import spark.implicits._
 
@@ -92,15 +97,13 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "sessions")
-    sessions.show(1000)
-    PersistenceHelper.save(localDevEnv, sessions.toDF(), config.getEnvironmentString("result.client.sessions"), "date", processFromStart)
+    PersistenceHelper.saveAndShow(localDevEnv, showResults, sessions.toDF(), config.getEnvironmentString("result.client.sessions"), "date", processFromStart)
 
-    val dau = cleanedUpData
+    val users = cleanedUpData
       .filter(x => {
         (x.uid != null) && (!x.uid.isEmpty)
       })
       .map(x => {
-
         DimensionsWithId(
           x.date,
           x.appId,
@@ -128,11 +131,107 @@ object MKStage2Client extends Logging {
         last("browser", ignoreNulls = true).alias("browser")
       )
       .distinct()
+      .persist()
+
+    val dau = users
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "dau")
-    dau.show(1000)
-    PersistenceHelper.save(localDevEnv, dau.toDF(), config.getEnvironmentString("result.client.dau"), "date", processFromStart)
+    PersistenceHelper.saveAndShow(localDevEnv, showResults, dau.toDF(), config.getEnvironmentString("result.client.dau"), "date", processFromStart)
+
+    var usersForXau = users
+    for (days <- 1 to 7) {
+      usersForXau = usersForXau.union(users
+        .withColumn("date", date_add(users.col("date"), days))
+      )
+    }
+    val wau = usersForXau
+      .distinct()
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
+      .count()
+      .withColumnRenamed("count", "wau")
+    PersistenceHelper.saveAndShow(localDevEnv, showResults, wau.toDF(), config.getEnvironmentString("result.client.wau"), "date", processFromStart)
+
+    for (days <- 8 to 30) {
+      usersForXau = usersForXau.union(users
+        .withColumn("date", date_add(users.col("date"), days))
+      )
+    }
+    val mau = usersForXau
+      .distinct()
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
+      .count()
+      .withColumnRenamed("count", "mau")
+    PersistenceHelper.saveAndShow(localDevEnv, showResults, mau.toDF(), config.getEnvironmentString("result.client.mau"), "date", processFromStart)
+
+    val usersOnly = users
+      .drop("appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
+      .persist()
+
+    val firstVisit = usersOnly
+      .groupBy("id")
+      .agg(min("date").alias("earliestDate"))
+      .persist()
+
+    val d1returning = usersOnly
+      .join(firstVisit, "id")
+      .withColumn("age", datediff($"date", $"earliestDate"))
+      .filter(x => {
+        x.getAs[Integer]("age") == 1
+      })
+      .drop("earliestDate","age")
+      .groupBy("date")
+      .count()
+      .withColumnRenamed("count","returning")
+
+    val d1retention = usersOnly
+        .groupBy("date")
+        .count()
+        .withColumnRenamed("count","current")
+        .join(d1returning,"date")
+        .withColumn("d1retention",$"returning"/$"current")
+    PersistenceHelper.saveAndShow(localDevEnv,showResults,d1retention.toDF(),config.getEnvironmentString("result.client.d1retention"),"date",processFromStart)
+
+
+    val d7returning = usersOnly
+      .join(firstVisit, "id")
+      .withColumn("age", datediff($"date", $"earliestDate"))
+      .filter(x => {
+        x.getAs[Integer]("age") == 7
+      })
+      .drop("earliestDate","age")
+      .groupBy("date")
+      .count()
+      .withColumnRenamed("count","returning")
+
+    val d7retention = usersOnly
+      .groupBy("date")
+      .count()
+      .withColumnRenamed("count","current")
+      .join(d7returning,"date")
+      .withColumn("d7retention",$"returning"/$"current")
+    PersistenceHelper.saveAndShow(localDevEnv,showResults,d7retention.toDF(),config.getEnvironmentString("result.client.d7retention"),"date",processFromStart)
+
+
+    val d30returning = usersOnly
+      .join(firstVisit, "id")
+      .withColumn("age", datediff($"date", $"earliestDate"))
+      .filter(x => {
+        x.getAs[Integer]("age") == 30
+      })
+      .drop("earliestDate","age")
+      .groupBy("date")
+      .count()
+      .withColumnRenamed("count","returning")
+
+    val d30retention = usersOnly
+      .groupBy("date")
+      .count()
+      .withColumnRenamed("count","current")
+      .join(d30returning,"date")
+      .withColumn("d30retention",$"returning"/$"current")
+    PersistenceHelper.saveAndShow(localDevEnv,showResults,d30retention.toDF(),config.getEnvironmentString("result.client.d30retention"),"date",processFromStart)
+
 
 
     spark.stop()
