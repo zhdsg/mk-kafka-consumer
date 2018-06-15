@@ -1,8 +1,11 @@
+package com.zhimo.datahub.etl.stage2
+
 import java.sql.Date
+
+import com.zhimo.datahub.common.{ConfigHelper, ConsUtil, PersistenceHelper, SparkSessionSingleton}
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.last
-import org.apache.spark.sql.functions.sum
+import org.apache.spark.sql.functions.{last, sum}
 
 /**
   * Created by yaning on 6/13/18.

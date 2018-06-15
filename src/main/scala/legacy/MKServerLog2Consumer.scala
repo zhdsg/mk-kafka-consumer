@@ -1,16 +1,19 @@
+package legacy
+
 /**
   * Created by yaning on 6/1/18.
   */
-import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, KafkaUtils, OffsetRange}
-import java.sql.{Date, Timestamp}
+import java.sql.Date
 
+import com.zhimo.datahub.common.{ConfigHelper, ConsUtil, PersistenceHelper, SparkSessionSingleton}
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.apache.spark.{SparkConf, TaskContext}
-import org.apache.spark.streaming._
-import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
+import org.apache.spark.streaming._
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.spark.streaming.kafka010.KafkaUtils
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 
 object MKServerLog2Consumer extends Logging {

@@ -1,9 +1,11 @@
-import org.apache.spark.SparkConf
-import org.apache.spark.internal.Logging
+package com.zhimo.datahub.etl.stage2
+
 import java.sql.Date
 
+import com.zhimo.datahub.common.{ConfigHelper, ParsingHelper, PersistenceHelper, SparkSessionSingleton}
+import org.apache.spark.SparkConf
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.{date_add, datediff, last, min}
-import org.apache.spark.sql.types.LongType
 
 object MKStage2Client extends Logging {
 

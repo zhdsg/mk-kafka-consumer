@@ -1,13 +1,11 @@
+package com.zhimo.datahub.etl.stage1
 
-import java.sql.Date
-import java.text.SimpleDateFormat
 
+import com.zhimo.datahub.common.{ConfigHelper, ConsUtil, PersistenceHelper, SparkSessionSingleton}
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.{from_unixtime, to_date}
-import org.apache.spark.sql.types._
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.streaming.kafka010.KafkaUtils
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent

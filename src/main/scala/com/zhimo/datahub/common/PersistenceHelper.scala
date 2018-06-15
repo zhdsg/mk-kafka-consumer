@@ -1,6 +1,8 @@
-import org.apache.spark.sql.SparkSession
+package com.zhimo.datahub.common
+
 import java.util.Properties
-import org.apache.spark.sql.DataFrame
+
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
   * Created by yaning on 5/2/18.

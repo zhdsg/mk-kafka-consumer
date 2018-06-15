@@ -1,6 +1,7 @@
+package com.zhimo.datahub.common
+
 import java.util.Properties
 
-import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.spark.sql.Row
 

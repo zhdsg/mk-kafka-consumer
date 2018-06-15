@@ -1,7 +1,8 @@
-import java.net.URLDecoder
-import org.uaparser.scala.Parser
-import org.uaparser.scala.Client
-import java.net.URL
+package com.zhimo.datahub.common
+
+import java.net.{URL, URLDecoder}
+
+import org.uaparser.scala.{Client, Parser}
 
 
 object ParsingHelper {

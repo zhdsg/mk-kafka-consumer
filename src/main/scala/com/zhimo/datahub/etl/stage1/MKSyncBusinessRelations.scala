@@ -1,3 +1,6 @@
+package com.zhimo.datahub.etl.stage1
+
+import com.zhimo.datahub.common.{ConfigHelper, SparkSessionSingleton}
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 
@@ -31,8 +34,6 @@ object MKSyncBusinessRelations  extends Logging{
   if (localDevEnv) {
     spark.sparkContext.setLogLevel("ERROR")
   }
-
-  import spark.implicits._
 
   //TODO: get all relations from MK live slave server
   //TODO: store relations to hive

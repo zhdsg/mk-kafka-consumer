@@ -1,3 +1,5 @@
+package com.zhimo.datahub.common
+
 /**
   * Created by yaning on 5/6/18.
   */
