@@ -1,7 +1,9 @@
-import java.time.{Duration, Period}
+package com.zhimo.datahub.common
+
 import java.time.temporal.TemporalAmount
-import java.{lang, util}
+import java.time.{Duration, Period}
 import java.util.concurrent.TimeUnit
+import java.{lang, util}
 
 import com.typesafe.config._
 

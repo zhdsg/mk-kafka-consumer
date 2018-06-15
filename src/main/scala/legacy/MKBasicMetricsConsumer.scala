@@ -1,17 +1,21 @@
+package legacy
+
 /**
   * Created by raven on 29/03/2018.
   */
 
 
 import java.sql.Date
+
+import com.zhimo.datahub.common.{ConfigHelper, KafkaBackupProducerHelper, PersistenceHelper, SparkSessionSingleton}
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
-import org.apache.spark.streaming._
-import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{from_unixtime, to_date,date_add,datediff}
+import org.apache.spark.sql.functions.{date_add, datediff, from_unixtime, to_date}
 import org.apache.spark.sql.types._
+import org.apache.spark.streaming._
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010._
 

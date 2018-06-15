@@ -1,3 +1,5 @@
+package com.zhimo.datahub.common
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 

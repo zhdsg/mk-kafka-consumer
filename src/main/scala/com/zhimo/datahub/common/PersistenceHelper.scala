@@ -1,19 +1,14 @@
-import org.apache.spark.sql.SparkSession
+package com.zhimo.datahub.common
+
 import java.util.Properties
-import org.apache.spark.sql.DataFrame
+
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
   * Created by yaning on 5/2/18.
   */
 object PersistenceHelper {
   val config = new ConfigHelper(this)
-  val mysqlUser = config.getString("mysql.user")
-  val mysqlPass = config.getString("mysql.pass")
-  val mysqlServer = config.getString("mysql.server")
-  val mysqlServerLogTable = config.getString("mysql.serverLogTable")
-  val connectionProperties = new Properties()
-  connectionProperties.put("user", mysqlUser)
-  connectionProperties.put("password", mysqlPass)
 
   def getParquetStorage(hiveStorage: String): String = {
     "tmp/" + hiveStorage + ".parquet"
@@ -85,5 +80,23 @@ object PersistenceHelper {
     }else{
       spark.read.table(table)
     }
+  }
+
+  def loadFromMysql(localEnvironment: Boolean,spark: SparkSession, table: String): DataFrame = {
+    var mysqlUser,mysqlPass,mysqlServer = ""
+    if(localEnvironment){
+      mysqlUser = config.getString("mysql.user_dev")
+      mysqlPass = config.getString("mysql.pass_dev")
+      mysqlServer = config.getString("mysql.server_dev")
+    }
+    else{
+      mysqlUser = config.getString("mysql.user_prod")
+      mysqlPass = config.getString("mysql.pass_prod")
+      mysqlServer = config.getString("mysql.server_prod")
+    }
+    val connectionProperties = new Properties()
+    connectionProperties.put("user", mysqlUser)
+    connectionProperties.put("password", mysqlPass)
+    spark.read.jdbc(mysqlServer,table,connectionProperties)
   }
 }
