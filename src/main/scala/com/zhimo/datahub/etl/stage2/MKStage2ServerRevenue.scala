@@ -64,7 +64,7 @@ object MKStage2ServerRevenue  extends Logging{
     sum("totalPrice").alias("totalPrice")
   )
   records.show()
-  PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("finance.revenue"), "date", processFromStart)
+  PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("result.server.revenue"), "date", processFromStart)
 
 }
 

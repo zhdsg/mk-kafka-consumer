@@ -69,7 +69,7 @@ object MKStage2ServerRefund extends Logging{
     sum("purchaseMoney").alias("purchaseMoney")
   )
   records.show()
-  PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("finance.refund"), "date", processFromStart)
+  PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("result.server.refund"), "date", processFromStart)
 
 }
 
