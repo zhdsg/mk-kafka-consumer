@@ -33,6 +33,7 @@ object ConsUtil {
   val refundInProgressStr = "退费中"
   val onlineRefundedStr = "退费成功(线上)"
   val workingInProgressStr = "平台处理中"
+  val defaultStatsStr = "未知状态"
 
   val ALIPAY_IMMEDIATE = 2
   val ALIPAY_QRCODE = 43
