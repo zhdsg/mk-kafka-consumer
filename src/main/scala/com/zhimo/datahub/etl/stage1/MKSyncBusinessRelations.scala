@@ -42,5 +42,5 @@ object MKSyncBusinessRelations  extends Logging{
   //TODO: store relations to hive
 
   PersistenceHelper.save(localDevEnv, classRelationTable, config.getEnvironmentString("storage.relations.class_relation"), null, true)
-
+  spark.stop()
 }

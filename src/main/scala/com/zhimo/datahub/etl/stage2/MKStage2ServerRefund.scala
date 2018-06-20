@@ -70,7 +70,7 @@ object MKStage2ServerRefund extends Logging{
   )
   records.show()
   PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("result.server.refund"), "date", processFromStart)
-
+  spark.stop()
 }
 
 final case class RefundRaw(

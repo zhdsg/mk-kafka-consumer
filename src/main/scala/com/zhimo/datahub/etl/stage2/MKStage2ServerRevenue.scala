@@ -65,7 +65,7 @@ object MKStage2ServerRevenue  extends Logging{
   )
   records.show()
   PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("result.server.revenue"), "date", processFromStart)
-
+  spark.stop()
 }
 
 final case class PaymentRaw(
