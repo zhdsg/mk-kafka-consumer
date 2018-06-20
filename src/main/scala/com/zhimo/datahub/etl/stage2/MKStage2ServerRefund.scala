@@ -5,7 +5,7 @@ import java.sql.Date
 import com.zhimo.datahub.common.{ConfigHelper, ConsUtil, PersistenceHelper, SparkSessionSingleton}
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{last, sum}
+import org.apache.spark.sql.functions.{last, sum,count}
 
 /**
   * Created by yaning on 6/20/18.
@@ -40,7 +40,6 @@ object MKStage2ServerRefund extends Logging{
       .map(x => {
         RefundAgg(
           x.purchaseId,
-          x.purchaseNumber,
           x.money / 100,
           x.purchaseMoney / 100,
           x.status match {
@@ -58,14 +57,12 @@ object MKStage2ServerRefund extends Logging{
           else Date.valueOf(x.date)
         )
       }).groupBy("purchaseId").agg(
-      last("purchaseNumber", ignoreNulls = true).alias("purchaseNumber"),
       last("refundMoney", ignoreNulls = true).alias("refundMoney"),
       last("purchaseMoney", ignoreNulls = true).alias("purchaseMoney"),
       last("status", ignoreNulls = true).alias("status"),
       last("date", ignoreNulls = true).alias("date")
     ).groupBy("date", "status").agg(
-      last("purchaseId", ignoreNulls = true).alias("purchaseId"),
-      last("purchaseNumber", ignoreNulls = true).alias("purchaseNumber"),
+      count("purchaseId").alias("cnt"),
       sum("refundMoney").alias("refundMoney"),
       sum("purchaseMoney").alias("purchaseMoney")
     )
@@ -89,7 +86,6 @@ final case class RefundRaw(
                            )
 final case class RefundAgg(
                              purchaseId:Long,
-                             purchaseNumber:String,
                              refundMoney:Long,
                              purchaseMoney:Long,
                              status:String,
