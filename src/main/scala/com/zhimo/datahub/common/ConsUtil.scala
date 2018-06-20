@@ -53,13 +53,14 @@ object ConsUtil {
   val POS_STR="POS"
   val OFFLINE_STR="现金"
 
-  val MK_CLASS_RELATION="(select ci.id, concat(ci.name,ci.open_code) as class_name, c.name as course_name, g.name as grade_name, s.name as subject_name, concat(u.name,u.mobile) as teacher_name" +
+  val MK_CLASS_RELATION="(select ci.id, concat(ci.name,ci.open_code) as class_name, c.name as course_name, g.name as grade_name, c.year, c.season, s.name as subject_name, concat(u.name,u.mobile) as teacher_name" +
     " from class_info ci " +
     "join course c on ci.course_id=c.id " +
-    "join grade g on ci.grade_id=g.id " +
-    "join subject s on ci.subject_id=s.id " +
+    "join class_grade cg on cg.class_id=ci.id " +
+    "join grade g on cg.grade_id=g.id " +
+    "join subject s on c.subject_id=s.id " +
     "join class_teacher ct on ci.id=ct.class_id " +
-    "join user on ct.teacher_usr_id=user.id " +
+    "join user u on ct.teacher_usr_id=u.id " +
     "where ci.is_del=0) class_relation"
 
 }
