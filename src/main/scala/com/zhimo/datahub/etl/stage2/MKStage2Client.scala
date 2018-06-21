@@ -182,7 +182,7 @@ object MKStage2Client extends Logging {
       .join(dau,dimensionColumns,"full")
       .join(wau,dimensionColumns,"full")
       .join(mau,dimensionColumns,"full")
-    PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), "date", processFromStart)
+    PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), null, processFromStart)
 
 
     val usersOnly = users
@@ -254,7 +254,7 @@ object MKStage2Client extends Logging {
     val retentions = d1retention
       .join(d7retention,Seq("date"),"full")
       .join(d30retention,Seq("date"),"full")
-    PersistenceHelper.saveAndShow(localDevEnv,showResults,retentions.toDF(),config.getEnvironmentString("result.client.retentions"),"date",processFromStart)
+    PersistenceHelper.saveAndShow(localDevEnv,showResults,retentions.toDF(),config.getEnvironmentString("result.client.retentions"),null,processFromStart)
 
 
 

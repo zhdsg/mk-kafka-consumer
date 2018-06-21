@@ -50,7 +50,7 @@ object PersistenceHelper {
   def saveAndShow(localEnvironment: Boolean, showResults:Boolean, dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
     val toShow = if(showResults) dataFrame.persist() else dataFrame
     if(showResults) {
-      toShow.show(10000)
+      toShow.show()
     }
     save(localEnvironment,toShow,table,partitionBy,overwrite)
   }
