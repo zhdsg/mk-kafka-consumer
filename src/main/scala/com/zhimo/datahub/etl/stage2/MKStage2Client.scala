@@ -1,9 +1,10 @@
 package com.zhimo.datahub.etl.stage2
 import java.sql.Date
-import com.zhimo.datahub.common.{ConfigHelper, ParsingHelper, PersistenceHelper, SparkSessionSingleton}
+
+import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{date_add, datediff, last, min, col}
+import org.apache.spark.sql.functions._
 
 object MKStage2Client extends Logging {
 
@@ -33,17 +34,21 @@ object MKStage2Client extends Logging {
     }
 
 
+    //val geo2Ip = new Geo2IPHelper(localDevEnv,spark,config)
+
 
     import spark.implicits._
-
 
     //TODO: parse location
 
 
-    val cleanedUpData = PersistenceHelper.load(localDevEnv, spark, storage).as[UserLogRecord]
+    val cleanedUpData = PersistenceHelper.load(localDevEnv, spark, storage)
+      .as[UserLogRecord]
       .map(x => {
         val u_a = ParsingHelper.parseUA(x.u_a)
         val parsedUrl = ParsingHelper.parseUrl(ParsingHelper.decodeUrl(x.url))
+
+        val uid = if(x.uid == null || x.uid.isEmpty) x._id else x.uid
 
         ParsedUserLog(
           x.date,
@@ -57,13 +62,21 @@ object MKStage2Client extends Logging {
           u_a.connection,
           u_a.client.userAgent.family,
           x._id,
-          x.ip,
-          x.uid,
+          Geo2IPHelper.ip2LocId(x.ip).toString,
+          uid,
           parsedUrl.url,
-          ParsingHelper.decodeUrl(x.action_name)
+          ParsingHelper.decodeUrl(x.action_name)//,
+//          ""
         )
       })
+      //.withColumnRenamed("city","_city")
+      //.join(geo2Ip.getLocation,Seq("locId"),"left")
+      //.as[ParsedUserLog]
       .persist()
+
+
+
+    //cleanedUpData.show(1000)
 
     val sessions = cleanedUpData
       .map(x => {
@@ -97,7 +110,6 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "sessions")
-    //PersistenceHelper.saveAndShow(localDevEnv, showResults, sessions.toDF(), config.getEnvironmentString("result.client.sessions"), "date", processFromStart)
 
     val users = cleanedUpData
       .filter(x => {
@@ -137,7 +149,6 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "dau")
-    //PersistenceHelper.saveAndShow(localDevEnv, showResults, dau.toDF(), config.getEnvironmentString("result.client.dau"), "date", processFromStart)
 
     var usersForXau = users
     for (days <- 1 to 7) {
@@ -150,7 +161,6 @@ object MKStage2Client extends Logging {
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .count()
       .withColumnRenamed("count", "wau")
-    //PersistenceHelper.saveAndShow(localDevEnv, showResults, wau.toDF(), config.getEnvironmentString("result.client.wau"), "date", processFromStart)
 
     for (days <- 8 to 30) {
       usersForXau = usersForXau.union(users
@@ -159,7 +169,7 @@ object MKStage2Client extends Logging {
     }
 
     val dimensionColumns = Seq("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
-    val dimensionColumnsKeys = dimensionColumns.map(col(_))
+    val dimensionColumnsKeys = dimensionColumns.map(col)
 
     val mau = usersForXau
       .distinct()
@@ -280,10 +290,11 @@ case class ParsedUserLog(
                           network: String,
                           browser: String,
                           _id: String,
-                          ip: String,
+                          locId: String,
                           uid: String,
                           url: String,
-                          action_name: String
+                          action_name: String//,
+//                          city:String
                         )
 
 

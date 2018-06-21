@@ -1,7 +1,8 @@
 package com.zhimo.datahub.common
 
 import java.util.Properties
-
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -79,6 +80,16 @@ object PersistenceHelper {
       spark.read.parquet(getParquetStorage(table))
     }else{
       spark.read.table(table)
+    }
+  }
+
+  def exists(localEnvironment: Boolean, spark: SparkSession, table: String): Boolean ={
+    if(localEnvironment){
+      val p = new Path(getParquetStorage(table))
+      val hadoopFS: FileSystem = FileSystem.get(spark.sparkContext.hadoopConfiguration)
+      hadoopFS.exists(p) && hadoopFS.getFileStatus(p).isDirectory
+    }else{
+      spark.catalog.tableExists(table)
     }
   }
 
