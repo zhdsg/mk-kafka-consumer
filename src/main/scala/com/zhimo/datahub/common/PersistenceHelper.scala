@@ -1,5 +1,6 @@
 package com.zhimo.datahub.common
 
+import java.sql.Date
 import java.util.Properties
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
@@ -75,11 +76,17 @@ object PersistenceHelper {
     }
   }
 
-  def load(localEnvironment: Boolean, spark: SparkSession, table: String): DataFrame = {
+  def load(localEnvironment: Boolean, spark: SparkSession, table: String, operator:String=null,fromDate:Date=null): DataFrame = {
     if(localEnvironment) {
-      spark.read.parquet(getParquetStorage(table))
+      if(operator!=null && fromDate != null)
+        spark.read.parquet(getParquetStorage(table)).filter(s"(date$operator$fromDate)")
+      else
+        spark.read.parquet(getParquetStorage(table))
     }else{
-      spark.read.table(table)
+      if(operator!=null && fromDate != null)
+        spark.read.table(table).filter(s"(date$operator$fromDate)")
+      else
+        spark.read.table(table)
     }
   }
 
