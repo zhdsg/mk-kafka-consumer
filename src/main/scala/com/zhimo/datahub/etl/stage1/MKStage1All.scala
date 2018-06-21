@@ -95,46 +95,46 @@ object MKStage1All extends Logging {
             .withColumn("date", to_date(from_unixtime(df("t") / 1000)))
 
           df.show()
-          PersistenceHelper.save(localDevEnv, toSave, storageClient, "date")
+          PersistenceHelper.saveToParquetStorage(toSave, PersistenceHelper.getParquetStorage(storageClient), "date")
         }
       })
 
-    streamServer
-      .map(_.value)
-      .filter(_.length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET)
-      .map(x=>(
-        "{\"date\":\"".concat(x.substring(0,ConsUtil.MK_SERVER_LOG_DATE_OFFSET)).concat("\",").concat(x.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET+1))
-        ))
-      .foreachRDD(rdd => {
-        if(!rdd.isEmpty()) {
-          val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
-          import spark.implicits._
-          val ds = spark.createDataset[String](rdd)
-          val df = spark.read.json(ds)
-
-          val payments = df.filter(x => {
-            x.getAs[String]("actionType").equals(ConsUtil.PAY_ACTION)
-          })
-
-          val refunds = df.filter(x => {
-            val action = x.getAs[String]("actionType")
-            val refundActions = Array(
-              ConsUtil.REFUND_SUCCESS_ACTION,
-              ConsUtil.REFUND_VERIFICATION_FAILED_ACTION,
-              ConsUtil.REFUND_APPLY_ACTION,
-              ConsUtil.REFUND_CANCELLED_ACTION,
-              ConsUtil.REFUND_VERIFICATION_FAILED_ACTION
-            )
-            refundActions.contains(action)
-          })
-
-          payments.show()
-          refunds.show()
-
-          PersistenceHelper.save(localDevEnv, payments, storageServerPayment)
-          PersistenceHelper.save(localDevEnv, refunds, storageServerRefund)
-        }
-      })
+//    streamServer
+//      .map(_.value)
+//      .filter(_.length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET)
+//      .map(x=>(
+//        "{\"date\":\"".concat(x.substring(0,ConsUtil.MK_SERVER_LOG_DATE_OFFSET)).concat("\",").concat(x.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET+1))
+//        ))
+//      .foreachRDD(rdd => {
+//        if(!rdd.isEmpty()) {
+//          val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+//          import spark.implicits._
+//          val ds = spark.createDataset[String](rdd)
+//          val df = spark.read.json(ds)
+//
+//          val payments = df.filter(x => {
+//            x.getAs[String]("actionType").equals(ConsUtil.PAY_ACTION)
+//          })
+//
+//          val refunds = df.filter(x => {
+//            val action = x.getAs[String]("actionType")
+//            val refundActions = Array(
+//              ConsUtil.REFUND_SUCCESS_ACTION,
+//              ConsUtil.REFUND_VERIFICATION_FAILED_ACTION,
+//              ConsUtil.REFUND_APPLY_ACTION,
+//              ConsUtil.REFUND_CANCELLED_ACTION,
+//              ConsUtil.REFUND_VERIFICATION_FAILED_ACTION
+//            )
+//            refundActions.contains(action)
+//          })
+//
+//          payments.show()
+//          refunds.show()
+//
+//          PersistenceHelper.save(localDevEnv, payments, storageServerPayment)
+//          PersistenceHelper.save(localDevEnv, refunds, storageServerRefund)
+//        }
+//      })
 
     logInfo("Start the computation...")
     ssc.start()
