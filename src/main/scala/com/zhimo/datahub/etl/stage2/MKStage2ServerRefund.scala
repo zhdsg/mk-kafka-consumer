@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions.{last, sum,count}
   */
 object MKStage2ServerRefund extends Logging{
   def main(args: Array[String]) {
+    val startTime = System.nanoTime()
     val config = new ConfigHelper(this)
     val processFromStart = config.getBoolean("processFromStart")
     val localDevEnv = config.getBoolean("localDev")
@@ -68,6 +69,7 @@ object MKStage2ServerRefund extends Logging{
     )
     records.show()
     PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("result.server.refund"), "date", processFromStart)
+    println("Execution duration " + ((System.nanoTime() - startTime) / 1000000000.0))
     spark.stop()
   }
 }
