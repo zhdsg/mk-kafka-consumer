@@ -2,7 +2,8 @@ package com.zhimo.datahub.common
 
 import java.sql.Date
 import java.util.Properties
-
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -50,7 +51,7 @@ object PersistenceHelper {
   def saveAndShow(localEnvironment: Boolean, showResults:Boolean, dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
     val toShow = if(showResults) dataFrame.persist() else dataFrame
     if(showResults) {
-      toShow.show(10000)
+      toShow.show()
     }
     save(localEnvironment,toShow,table,partitionBy,overwrite)
   }
@@ -86,6 +87,16 @@ object PersistenceHelper {
         spark.read.table(table).filter(s"(date$operator$fromDate)")
       else
         spark.read.table(table)
+    }
+  }
+
+  def exists(localEnvironment: Boolean, spark: SparkSession, table: String): Boolean ={
+    if(localEnvironment){
+      val p = new Path(getParquetStorage(table))
+      val hadoopFS: FileSystem = FileSystem.get(spark.sparkContext.hadoopConfiguration)
+      hadoopFS.exists(p) && hadoopFS.getFileStatus(p).isDirectory
+    }else{
+      spark.catalog.tableExists(table)
     }
   }
 
