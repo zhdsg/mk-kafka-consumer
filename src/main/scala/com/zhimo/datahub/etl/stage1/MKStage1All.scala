@@ -75,8 +75,9 @@ object MKStage1All extends Logging {
 
     if (processFromStart) { // Clean up storage if processing from start
       PersistenceHelper.delete(localDevEnv,storageClient)
-      PersistenceHelper.delete(localDevEnv,storageServerPayment)
-      PersistenceHelper.delete(localDevEnv,storageServerRefund)
+      PersistenceHelper.delete(true,storageClient)
+      //PersistenceHelper.delete(localDevEnv,storageServerPayment)
+      //PersistenceHelper.delete(localDevEnv,storageServerRefund)
     }
 
     streamClient
