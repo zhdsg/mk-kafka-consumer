@@ -1,6 +1,5 @@
 package com.zhimo.datahub.etl.stage2
 import java.sql.Date
-
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
@@ -42,7 +41,7 @@ object MKStage2Client extends Logging {
     //TODO: parse location
 
 
-    val cleanedUpData = PersistenceHelper.load(localDevEnv, spark, storage)
+    val cleanedUpData = PersistenceHelper.loadFromParquet(spark, storage)
       .as[UserLogRecord]
       .map(x => {
         val u_a = ParsingHelper.parseUA(x.u_a)
@@ -74,9 +73,6 @@ object MKStage2Client extends Logging {
       //.as[ParsedUserLog]
       .persist()
 
-
-
-    //cleanedUpData.show(1000)
 
     val sessions = cleanedUpData
       .map(x => {
