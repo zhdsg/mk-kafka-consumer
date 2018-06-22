@@ -38,15 +38,19 @@ object MKStage2ServerSignup extends Logging{
     import spark.implicits._
     //TODO: load raw data
     val records = PersistenceHelper.load(localDevEnv, spark, storage).as[SignupRaw]
-      .map(x => {
-        ("all"::x.purchaseClassNames).foreach(className=>{
+      .flatMap(x => {
+        val pid = x.purchaseId
+        val date = Date.valueOf(x.date)
+        val classNames:List[String] = x.purchaseClassNames
+        classNames.map(y=>
           SignupAgg(
-            x.purchaseId,
-            className,
-            Date.valueOf(x.date)
+            pid,
+            y,
+            date
           )
-        })
-      }).groupBy("date", "className").agg(
+        )
+      })
+      .groupBy("date", "className").agg(
       count("purchaseId").alias("cnt")
     )
     records.show()
