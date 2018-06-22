@@ -14,6 +14,8 @@ object ConsUtil {
   val REFUND_VERIFICATION_SUCCESS_ACTION="refund_verify_success"
   val REFUND_CANCELLED_ACTION="refund_cancel"
   val REFUND_APPLY_ACTION="refund_apply"
+  val ADD_STUDENT="student_add"
+  val SIGNUP_CLASS="signup_class"
 
   // refund status
   val toBeVerify = 0

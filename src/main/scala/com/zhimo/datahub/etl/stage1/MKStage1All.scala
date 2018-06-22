@@ -22,6 +22,8 @@ object MKStage1All extends Logging {
     val storageClient = config.getEnvironmentString("storage.client")
     val storageServerPayment = config.getEnvironmentString("storage.server.payment")
     val storageServerRefund = config.getEnvironmentString("storage.server.refund")
+    val storageServerStudent = config.getEnvironmentString("storage.server.student")
+    val storageServerSignup = config.getEnvironmentString("storage.server.signup")
 
 
     val kafkaParams = Map[String, Object](
@@ -128,10 +130,16 @@ object MKStage1All extends Logging {
             refundActions.contains(action)
           })
 
-
+          val students = df.filter(x => {
+            x.getAs[String]("actionType").equals(ConsUtil.ADD_STUDENT)
+          })
+          val signups = df.filter(x => {
+            x.getAs[String]("actionType").equals(ConsUtil.SIGNUP_CLASS)
+          })
           PersistenceHelper.saveToParquetStorage(payments, storageServerPayment)
           PersistenceHelper.saveToParquetStorage(refunds, storageServerRefund)
-
+          PersistenceHelper.saveToParquetStorage(students, storageServerStudent)
+          PersistenceHelper.saveToParquetStorage(signups, storageServerSignup)
           payments.show()
           refunds.show()
         }

@@ -1,4 +1,4 @@
-package com.zhimo.datahub.etl
+package com.zhimo.datahub.etl.stage2
 
 import java.sql.Date
 
