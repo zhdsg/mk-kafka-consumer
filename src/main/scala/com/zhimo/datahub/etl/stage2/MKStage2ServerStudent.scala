@@ -37,7 +37,7 @@ object MKStage2ServerStudent extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.load(localDevEnv, spark, storage).as[StudentRaw]
+    val records = PersistenceHelper.loadFromParquet(spark, storage).as[StudentRaw]
       .map(x => {
         StudentAgg(
           x.studentId,

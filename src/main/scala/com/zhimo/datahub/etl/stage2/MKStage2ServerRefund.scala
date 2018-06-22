@@ -37,7 +37,7 @@ object MKStage2ServerRefund extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.load(localDevEnv, spark, storage).as[RefundRaw]
+    val records = PersistenceHelper.loadFromParquet(spark, storage).as[RefundRaw]
       .map(x => {
         RefundAgg(
           x.purchaseId,

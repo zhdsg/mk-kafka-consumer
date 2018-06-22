@@ -57,7 +57,7 @@ object MKStage1All extends Logging {
     if (localDevEnv) {
       ssc.sparkContext.setLogLevel("ERROR")
     } else {
-      ssc.sparkContext.setLogLevel("INFO")
+      ssc.sparkContext.setLogLevel("ERROR")
     }
 
     val streamClient = KafkaUtils.createDirectStream[String, String](
@@ -79,6 +79,8 @@ object MKStage1All extends Logging {
       PersistenceHelper.deleteParquet(storageClient)
       PersistenceHelper.deleteParquet(storageServerPayment)
       PersistenceHelper.deleteParquet(storageServerRefund)
+      PersistenceHelper.deleteParquet(storageServerStudent)
+      PersistenceHelper.deleteParquet(storageServerSignup)
     }
 
     streamClient
@@ -142,6 +144,8 @@ object MKStage1All extends Logging {
           PersistenceHelper.saveToParquetStorage(signups, storageServerSignup)
           payments.show()
           refunds.show()
+          students.show()
+          signups.show()
         }
       })
 
