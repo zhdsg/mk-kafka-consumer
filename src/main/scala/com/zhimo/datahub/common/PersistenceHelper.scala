@@ -44,10 +44,6 @@ object PersistenceHelper {
     val writerPartitioned = if (partitionBy == null) writer else writer.partitionBy(partitionBy)
     val writerMode = if (overwrite) writerPartitioned.mode("overwrite") else writerPartitioned.mode("append")
     writerMode.saveAsTable(table)
-    val spark = SparkSessionSingleton.getInstanceIfExists()
-    val hadoopConf = spark.sparkContext.hadoopConfiguration
-    val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
-    hdfs.setPermission(new org.apache.hadoop.fs.Path(table),new FsPermission("777"))
   }
 
   def save(localEnvironment: Boolean, dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
