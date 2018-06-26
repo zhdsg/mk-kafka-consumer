@@ -37,7 +37,10 @@ object MKStage2ServerRevenue  extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.loadFromParquet(spark, storage).as[PaymentRaw]
+    val rawRecords = PersistenceHelper.loadFromParquet(spark, storage)
+    rawRecords.printSchema()
+    rawRecords.show()
+    val records =rawRecords.as[PaymentRaw]
       .map(x => {
         PaymentAgg(
           x.purchaseNumber,

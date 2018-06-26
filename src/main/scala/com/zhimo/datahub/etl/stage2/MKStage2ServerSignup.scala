@@ -37,7 +37,10 @@ object MKStage2ServerSignup extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.loadFromParquet(spark, storage).as[SignupRaw]
+    val rawRecords = PersistenceHelper.loadFromParquet(spark, storage)
+    rawRecords.printSchema()
+    rawRecords.show()
+    val records =rawRecords.as[SignupRaw]
       .flatMap(x => {
         val pid = x.purchaseId
         val date = Date.valueOf(x.date)

@@ -37,21 +37,18 @@ object MKStage2ServerStudent extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.loadFromParquet(spark, storage).as[StudentRaw]
+    val rawRecords = PersistenceHelper.loadFromParquet(spark, storage)
+    rawRecords.printSchema()
+    rawRecords.show()
+    val records =rawRecords.as[StudentRaw]
       .map(x => {
         StudentAgg(
           x.studentId,
-          x.sex match {
-            case 0 => "男"
-            case 1 => "女"
-            case -1 => "未知"
-          },
           Date.valueOf(x.date)
         )
       }).groupBy("studentId").agg(
-      last("sex", ignoreNulls = true).alias("sex"),
       last("date", ignoreNulls = true).alias("date")
-    ).groupBy("date", "sex").agg(
+    ).groupBy("date").agg(
       count("studentId").alias("cnt")
     )
     records.show()
@@ -64,12 +61,10 @@ object MKStage2ServerStudent extends Logging{
 final case class StudentRaw(
                              studentId:Long,
                              name:String,
-                             sex:Long,
                              mobile:String,
                              date:String
                            )
 final case class StudentAgg(
                              studentId:Long,
-                             sex:String,
                              date:Date
                            )

@@ -138,14 +138,20 @@ object MKStage1All extends Logging {
           val signups = df.filter(x => {
             x.getAs[String]("actionType").equals(ConsUtil.SIGNUP_CLASS)
           })
-          PersistenceHelper.saveToParquetStorage(payments, storageServerPayment)
-          PersistenceHelper.saveToParquetStorage(refunds, storageServerRefund)
-          PersistenceHelper.saveToParquetStorage(students, storageServerStudent)
-          PersistenceHelper.saveToParquetStorage(signups, storageServerSignup)
+          payments.printSchema()
           payments.show()
+          refunds.printSchema()
           refunds.show()
+          students.printSchema()
           students.show()
+          signups.printSchema()
           signups.show()
+
+          PersistenceHelper.saveToParquetStorage(payments, storageServerPayment, "date")
+          PersistenceHelper.saveToParquetStorage(refunds, storageServerRefund, "date")
+          PersistenceHelper.saveToParquetStorage(students, storageServerStudent, "date")
+          PersistenceHelper.saveToParquetStorage(signups, storageServerSignup, "date")
+
         }
       })
 
