@@ -33,6 +33,7 @@ object ConsUtil {
   val refundInProgressStr = "退费中"
   val onlineRefundedStr = "退费成功(线上)"
   val workingInProgressStr = "平台处理中"
+  val defaultStatsStr = "未知状态"
 
   val ALIPAY_IMMEDIATE = 2
   val ALIPAY_QRCODE = 43
@@ -51,5 +52,15 @@ object ConsUtil {
   val BILL_POS_STR="快钱POS"
   val POS_STR="POS"
   val OFFLINE_STR="现金"
+
+  val MK_CLASS_RELATION="(select ci.id, concat(ci.name,ci.open_code) as class_name, c.name as course_name, g.name as grade_name, c.year, c.season, s.name as subject_name, concat(u.name,u.mobile) as teacher_name" +
+    " from class_info ci " +
+    "join course c on ci.course_id=c.id " +
+    "join class_grade cg on cg.class_id=ci.id " +
+    "join grade g on cg.grade_id=g.id " +
+    "join subject s on c.subject_id=s.id " +
+    "join class_teacher ct on ci.id=ct.class_id " +
+    "join user u on ct.teacher_usr_id=u.id " +
+    "where ci.is_del=0) class_relation"
 
 }

@@ -74,9 +74,9 @@ object MKStage1All extends Logging {
     val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf, !localDevEnv)
 
     if (processFromStart) { // Clean up storage if processing from start
-      PersistenceHelper.delete(localDevEnv,storageClient)
-      PersistenceHelper.delete(localDevEnv,storageServerPayment)
-      PersistenceHelper.delete(localDevEnv,storageServerRefund)
+      PersistenceHelper.deleteParquet(storageClient)
+      PersistenceHelper.deleteParquet(storageServerPayment)
+      PersistenceHelper.deleteParquet(storageServerRefund)
     }
 
     streamClient
@@ -94,8 +94,8 @@ object MKStage1All extends Logging {
             })
             .withColumn("date", to_date(from_unixtime(df("t") / 1000)))
 
+          PersistenceHelper.saveToParquetStorage(toSave, storageClient, "date")
           df.show()
-          PersistenceHelper.save(localDevEnv, toSave, storageClient, "date")
         }
       })
 
@@ -128,11 +128,12 @@ object MKStage1All extends Logging {
             refundActions.contains(action)
           })
 
+
+          PersistenceHelper.saveToParquetStorage(payments, storageServerPayment)
+          PersistenceHelper.saveToParquetStorage(refunds, storageServerRefund)
+
           payments.show()
           refunds.show()
-
-          PersistenceHelper.save(localDevEnv, payments, storageServerPayment)
-          PersistenceHelper.save(localDevEnv, refunds, storageServerRefund)
         }
       })
 

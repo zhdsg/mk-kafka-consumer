@@ -1,9 +1,13 @@
 package com.zhimo.datahub.etl.stage2
+
 import java.sql.Date
-import com.zhimo.datahub.common.{ConfigHelper, ParsingHelper, PersistenceHelper, SparkSessionSingleton}
+
+import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{date_add, datediff, last, min, col}
+import org.apache.spark.sql.functions.{last, sum, countDistinct, date_add, datediff, min, lit}
+import scala.collection.mutable.ListBuffer
+
 
 object MKStage2Client extends Logging {
 
@@ -33,219 +37,177 @@ object MKStage2Client extends Logging {
     }
 
 
+    //val geo2Ip = new Geo2IPHelper(localDevEnv,spark,config)
 
     import spark.implicits._
 
-
     //TODO: parse location
 
+    println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-    val cleanedUpData = PersistenceHelper.load(localDevEnv, spark, storage).as[UserLogRecord]
+    val cleanedUpData = PersistenceHelper.loadFromParquet(spark, storage)
+      .as[UserLogRecord]
       .map(x => {
-        val u_a = ParsingHelper.parseUA(x.u_a)
         val parsedUrl = ParsingHelper.parseUrl(ParsingHelper.decodeUrl(x.url))
+
+        val uid = if (x.uid == null || x.uid.isEmpty) x._id else x.uid
 
         ParsedUserLog(
           x.date,
           x.appId,
           parsedUrl.isWechat,
           x.res,
+          x._id,
+          x.ip,
+          uid,
+          x.u_a
+        )
+      })
+      .persist()
+
+    println("Cleaned up data " + cleanedUpData.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+
+    val users = cleanedUpData
+      .groupBy("date", "uid", "_id")
+      .agg(
+        last("appId", ignoreNulls = true).alias("appId"),
+        last("isWechat", ignoreNulls = true).alias("isWechat"),
+        last("resolution", ignoreNulls = true).alias("resolution"),
+        last("u_a", ignoreNulls = true).alias("u_a"),
+        last("locId", ignoreNulls = true).alias("locId")
+      )
+      .persist()
+
+      val usersForBasics = users
+      .as[ParsedUserLog]
+      .flatMap(x => {
+        val lst = ListBuffer(
+          DimensionsAndIDs(x.date, x.appId, x.isWechat, x.resolution, x.locId, x.u_a, x._id, x.uid, x.uid, x.uid)
+        )
+        for (days <- 1 to 30) {
+          if (days <= 7) {
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.u_a, null, null, x.uid, x.uid)
+            lst += y
+          } else {
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.u_a, null, null, null, x.uid)
+            lst += y
+          }
+        }
+        lst
+      })
+
+    val basics = usersForBasics
+      .groupBy("date", "appId", "isWechat", "resolution", "u_a", "locId")
+      .agg(
+        countDistinct("sessionsIDs").alias("sessions"),
+        countDistinct("dauIDs").alias("dau"),
+        countDistinct("wauIDs").alias("wau"),
+        countDistinct("mauIDs").alias("mau")
+      )
+      .as[DimensionsMetricsWithoutUA]
+      .map(x => {
+        val u_a = ParsingHelper.parseUA(x.u_a)
+        DimensionsMetrics(
+          x.date,
+          x.appId,
+          x.isWechat,
+          x.resolution,
+          x.locId,
           u_a.client.device.model.getOrElse("Unknown device"),
           u_a.client.os.family,
           u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
           u_a.language,
           u_a.connection,
           u_a.client.userAgent.family,
-          x._id,
-          x.ip,
-          x.uid,
-          parsedUrl.url,
-          ParsingHelper.decodeUrl(x.action_name)
+          x.sessions,
+          x.dau,
+          x.wau,
+          x.mau
         )
       })
-      .persist()
-
-    val sessions = cleanedUpData
-      .map(x => {
-        DimensionsWithId(
-          x.date,
-          x.appId,
-          x.isWechat,
-          x.resolution,
-          x.device,
-          x.os,
-          x.osVersion,
-          x.language,
-          x.network,
-          x.browser,
-          x._id
-        )
-      })
-      .groupBy("date", "id")
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
       .agg(
-        last("appId", ignoreNulls = true).alias("appId"),
-        last("isWechat", ignoreNulls = true).alias("isWechat"),
-        last("resolution", ignoreNulls = true).alias("resolution"),
-        last("device", ignoreNulls = true).alias("device"),
-        last("os", ignoreNulls = true).alias("os"),
-        last("osVersion", ignoreNulls = true).alias("osVersion"),
-        last("language", ignoreNulls = true).alias("language"),
-        last("network", ignoreNulls = true).alias("network"),
-        last("browser", ignoreNulls = true).alias("browser")
+        sum("sessions").alias("sessions"),
+        sum("dau").alias("dau"),
+        sum("wau").alias("wau"),
+        sum("mau").alias("mau")
       )
-      .distinct()
-      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
-      .count()
-      .withColumnRenamed("count", "sessions")
-    //PersistenceHelper.saveAndShow(localDevEnv, showResults, sessions.toDF(), config.getEnvironmentString("result.client.sessions"), "date", processFromStart)
+    PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), null, processFromStart)
 
-    val users = cleanedUpData
-      .filter(x => {
-        (x.uid != null) && (!x.uid.isEmpty)
-      })
-      .map(x => {
-        DimensionsWithId(
-          x.date,
-          x.appId,
-          x.isWechat,
-          x.resolution,
-          x.device,
-          x.os,
-          x.osVersion,
-          x.language,
-          x.network,
-          x.browser,
-          x.uid
-        )
-      })
-      .groupBy("date", "id")
-      .agg(
-        last("appId", ignoreNulls = true).alias("appId"),
-        last("isWechat", ignoreNulls = true).alias("isWechat"),
-        last("resolution", ignoreNulls = true).alias("resolution"),
-        last("device", ignoreNulls = true).alias("device"),
-        last("os", ignoreNulls = true).alias("os"),
-        last("osVersion", ignoreNulls = true).alias("osVersion"),
-        last("language", ignoreNulls = true).alias("language"),
-        last("network", ignoreNulls = true).alias("network"),
-        last("browser", ignoreNulls = true).alias("browser")
-      )
-      .distinct()
+    val usersOnly = cleanedUpData
+      .select("date","uid")
       .persist()
 
-    val dau = users
-      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
-      .count()
-      .withColumnRenamed("count", "dau")
-    //PersistenceHelper.saveAndShow(localDevEnv, showResults, dau.toDF(), config.getEnvironmentString("result.client.dau"), "date", processFromStart)
-
-    var usersForXau = users
-    for (days <- 1 to 7) {
-      usersForXau = usersForXau.union(users
-        .withColumn("date", date_add(users.col("date"), days))
-      )
-    }
-    val wau = usersForXau
-      .distinct()
-      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
-      .count()
-      .withColumnRenamed("count", "wau")
-    //PersistenceHelper.saveAndShow(localDevEnv, showResults, wau.toDF(), config.getEnvironmentString("result.client.wau"), "date", processFromStart)
-
-    for (days <- 8 to 30) {
-      usersForXau = usersForXau.union(users
-        .withColumn("date", date_add(users.col("date"), days))
-      )
-    }
-
-    val dimensionColumns = Seq("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
-    val dimensionColumnsKeys = dimensionColumns.map(col(_))
-
-    val mau = usersForXau
-      .distinct()
-      .groupBy(dimensionColumnsKeys:_*)
-      .count()
-      .withColumnRenamed("count", "mau")
-
-
-    val basics = sessions
-      .join(dau,dimensionColumns,"full")
-      .join(wau,dimensionColumns,"full")
-      .join(mau,dimensionColumns,"full")
-    PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), "date", processFromStart)
-
-
-    val usersOnly = users
-      .drop("appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
-      .persist()
+    println("Users only " + usersOnly.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     val firstVisit = usersOnly
-      .groupBy("id")
+      .groupBy("uid")
       .agg(min("date").alias("earliestDate"))
       .persist()
 
+    println("First Visit " + firstVisit.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+
     val d1returning = usersOnly
-      .join(firstVisit, "id")
+      .join(firstVisit, "uid")
       .withColumn("age", datediff($"date", $"earliestDate"))
       .filter(x => {
         x.getAs[Integer]("age") == 1
       })
-      .drop("earliestDate","age")
+      .drop("earliestDate", "age")
       .groupBy("date")
       .count()
-      .withColumnRenamed("count","returning")
+      .withColumnRenamed("count", "returning")
 
     val d1retention = usersOnly
-        .groupBy("date")
-        .count()
-        .withColumnRenamed("count","current")
-        .join(d1returning,"date")
-        .withColumn("d1retention",$"returning"/$"current")
-        .drop("current","returning")
+      .groupBy("date")
+      .count()
+      .withColumnRenamed("count", "current")
+      .join(d1returning, "date")
+      .withColumn("d1retention", $"returning" / $"current")
+      .drop("current", "returning")
 
     val d7returning = usersOnly
-      .join(firstVisit, "id")
+      .join(firstVisit, "uid")
       .withColumn("age", datediff($"date", $"earliestDate"))
       .filter(x => {
         x.getAs[Integer]("age") == 7
       })
-      .drop("earliestDate","age")
+      .drop("earliestDate", "age")
       .groupBy("date")
       .count()
-      .withColumnRenamed("count","returning")
+      .withColumnRenamed("count", "returning")
 
     val d7retention = usersOnly
       .groupBy("date")
       .count()
-      .withColumnRenamed("count","current")
-      .join(d7returning,"date")
-      .withColumn("d7retention",$"returning"/$"current")
-      .drop("current","returning")
+      .withColumnRenamed("count", "current")
+      .join(d7returning, "date")
+      .withColumn("d7retention", $"returning" / $"current")
+      .drop("current", "returning")
 
     val d30returning = usersOnly
-      .join(firstVisit, "id")
+      .join(firstVisit, "uid")
       .withColumn("age", datediff($"date", $"earliestDate"))
       .filter(x => {
         x.getAs[Integer]("age") == 30
       })
-      .drop("earliestDate","age")
+      .drop("earliestDate", "age")
       .groupBy("date")
       .count()
-      .withColumnRenamed("count","returning")
+      .withColumnRenamed("count", "returning")
 
     val d30retention = usersOnly
       .groupBy("date")
       .count()
-      .withColumnRenamed("count","current")
-      .join(d30returning,"date")
-      .withColumn("d30retention",$"returning"/$"current")
-      .drop("current","returning")
+      .withColumnRenamed("count", "current")
+      .join(d30returning, "date")
+      .withColumn("d30retention", $"returning" / $"current")
+      .drop("current", "returning")
 
     val retentions = d1retention
-      .join(d7retention,Seq("date"),"full")
-      .join(d30retention,Seq("date"),"full")
-    PersistenceHelper.saveAndShow(localDevEnv,showResults,retentions.toDF(),config.getEnvironmentString("result.client.retentions"),"date",processFromStart)
-
+      .join(d7retention, Seq("date"), "full")
+      .join(d30retention, Seq("date"), "full")
+    PersistenceHelper.saveAndShow(localDevEnv, showResults, retentions.toDF(), config.getEnvironmentString("result.client.retentions"), null, processFromStart)
 
 
     spark.stop()
@@ -254,38 +216,84 @@ object MKStage2Client extends Logging {
 
 }
 
-case class DimensionsWithId(
-                             date: Date,
-                             appId: Long,
-                             isWechat: Boolean,
-                             resolution: String,
-                             device: String,
-                             os: String,
-                             osVersion: String,
-                             language: String,
-                             network: String,
-                             browser: String,
-                             id: String
-                           )
+case class DimensionsWithoutUA(
+                                date: Date,
+                                appId: Long,
+                                isWechat: Boolean,
+                                resolution: String,
+                                u_a: String,
+                                locId: String,
+                                number: Long
+                              )
+
+case class DimensionsWithLong(
+                               date: Date,
+                               appId: Long,
+                               isWechat: Boolean,
+                               resolution: String,
+                               device: String,
+                               os: String,
+                               osVersion: String,
+                               language: String,
+                               network: String,
+                               browser: String,
+                               number: Long
+                             )
 
 case class ParsedUserLog(
                           date: Date,
                           appId: Long,
                           isWechat: Boolean,
                           resolution: String,
-                          device: String,
-                          os: String,
-                          osVersion: String,
-                          language: String,
-                          network: String,
-                          browser: String,
                           _id: String,
-                          ip: String,
+                          locId: String,
                           uid: String,
-                          url: String,
-                          action_name: String
+                          u_a: String
                         )
 
+case class DimensionsAndIDs(
+                             date: Date,
+                             appId: Long,
+                             isWechat: Boolean,
+                             resolution: String,
+                             locId: String,
+                             u_a: String,
+                             sessionsIDs: String,
+                             dauIDs: String,
+                             wauIDs: String,
+                             mauIDs: String
+                           )
+
+case class DimensionsMetricsWithoutUA(
+                                       date: Date,
+                                       appId: Long,
+                                       isWechat: Boolean,
+                                       resolution: String,
+                                       locId: String,
+                                       u_a: String,
+                                       sessions: String,
+                                       dau: Long,
+                                       wau: Long,
+                                       mau: Long
+                                     )
+
+case class DimensionsMetrics(
+                              date: Date,
+                              appId: Long,
+                              isWechat: Boolean,
+                              resolution: String,
+                              locId: String,
+                              device: String,
+                              os: String,
+                              osVersion: String,
+                              language: String,
+                              network: String,
+                              browser: String,
+                              sessions: String,
+                              dau: Long,
+                              wau: Long,
+                              mau: Long
+                            )
 
 final case class UserLogRecord(
                                 date: Date,
@@ -293,7 +301,7 @@ final case class UserLogRecord(
                                 //_idn:String,
                                 //_idts:String,
                                 //_idvc:String,
-                                _ref: String,
+                                //_ref: String,
                                 //_refts:Long,
                                 //_viewts:String,
                                 action_name: String,
@@ -302,9 +310,9 @@ final case class UserLogRecord(
                                 //cookie:String,
                                 //data:String,
                                 //dir:String,
-                                e_a: String,
-                                e_c: String,
-                                e_n: String,
+                                //e_a: String,
+                                //e_c: String,
+                                //e_n: String,
                                 //e_v:String,
                                 //fla:String,
                                 //gears:String,
@@ -318,11 +326,11 @@ final case class UserLogRecord(
                                 //realp:String,
                                 //rec:Long,
                                 res: String,
-                                t: Long,
+                                //t: Long,
                                 u_a: String,
                                 uid: String,
-                                url: String,
-                                urlref: String
+                                url: String
+                                //urlref: String
                                 //wma:String
 
                               )
