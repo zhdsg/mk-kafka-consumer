@@ -94,7 +94,7 @@ object MKStage2Client extends Logging {
         )
       })
       .persist()
-    
+
     println("Users " + users.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     val usersForBasics = users

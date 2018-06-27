@@ -8,18 +8,18 @@ object Geo2IPHelper {
   @transient var ids:Array[GeoData] = _
   @transient var ranges:Array[GeoDataRange] = _
 
-  def init(localDevEnv: Boolean, spark: SparkSession, config: ConfigHelper): Unit = {
+  def init(localDevEnv: Boolean, spark: SparkSession, config: ConfigHelper,forceOverwrite:Boolean = false): Unit = {
 
     import spark.implicits._
     var geolocation_ids: Dataset[GeoData] = null
     var geolocation_ranges: Dataset[GeoDataRange] = null
-    if (config.getBoolean("location.overwrite") || (!PersistenceHelper.exists(localDevEnv, spark, config.getString("location.ids.table")))) {
+    if (forceOverwrite || config.getBoolean("location.overwrite") || (!PersistenceHelper.exists(localDevEnv, spark, config.getString("location.ids.table")))) {
       geolocation_ids = spark.read.option("header", "true").csv(config.getString("location.ids.source")).withColumn("locId", $"locId".cast("Long")).as[GeoData].persist(MEMORY_ONLY)
       PersistenceHelper.save(localEnvironment = localDevEnv, dataFrame = geolocation_ids.toDF(), table = config.getString("location.ids.table"), partitionBy = null, overwrite = true)
     } else {
       geolocation_ids = PersistenceHelper.load(localDevEnv, spark, config.getString("location.ids.table")).as[GeoData].persist(MEMORY_ONLY)
     }
-    if (config.getBoolean("location.overwrite") || (!PersistenceHelper.exists(localDevEnv, spark, config.getString("location.ranges.table")))) {
+    if (forceOverwrite || config.getBoolean("location.overwrite") || (!PersistenceHelper.exists(localDevEnv, spark, config.getString("location.ranges.table")))) {
       geolocation_ranges = spark.read.option("header", "true").csv(config.getString("location.ranges.source")).withColumn("startIpNum", $"startIpNum".cast("Long")).withColumn("endIpNum", $"endIpNum".cast("Long")).withColumn("locId", $"locId".cast("Long")).as[GeoDataRange].persist(MEMORY_ONLY)
       PersistenceHelper.save(localEnvironment = localDevEnv, dataFrame = geolocation_ranges.toDF(), table = config.getString("location.ranges.table"), partitionBy = null, overwrite = true)
     } else {
