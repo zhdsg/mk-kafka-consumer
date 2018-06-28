@@ -2,13 +2,14 @@ package com.zhimo.datahub.common
 
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.storage.StorageLevel.MEMORY_ONLY
+import org.apache.spark.broadcast.Broadcast
 
 object Geo2IPHelper {
 
-  @transient private var ids:org.apache.spark.broadcast.Broadcast[Array[GeoData]] = _
-  @transient private var ranges:org.apache.spark.broadcast.Broadcast[Array[GeoDataRange]] = _
 
-  def init(localDevEnv: Boolean, spark: SparkSession ,forceOverwrite:Boolean = false): Unit = {
+  def init(localDevEnv: Boolean, spark: SparkSession ,forceOverwrite:Boolean = false): Tuple2[Array[GeoData],Array[GeoDataRange]] = {
+    var ids:Array[GeoData] = null
+    var ranges:Array[GeoDataRange] = null
     val config = new ConfigHelper(this)
 
     import spark.implicits._
@@ -26,12 +27,13 @@ object Geo2IPHelper {
     } else {
       geolocation_ranges = PersistenceHelper.load(localDevEnv, spark, config.getString("location.ranges.table")).as[GeoDataRange].persist(MEMORY_ONLY)
     }
-    ids = spark.sparkContext.broadcast(geolocation_ids.collect())
-    ranges = spark.sparkContext.broadcast(geolocation_ranges.collect())
-    println("Geo2IPHelper initialized "+ids.value.length+" "+ranges.value.length)
+    ids = geolocation_ids.collect()
+    ranges = geolocation_ranges.collect()
+    println("Geo2IPHelper initialized "+ids.length+" "+ranges.length)
+    (ids,ranges)
   }
 
-  def getLocation(locIP: Long): String = {
+  def getLocation(locIP: Long,ids:Broadcast[Array[GeoData]],ranges:Broadcast[Array[GeoDataRange]]): String = {
     var idxLow = 0
     var idxHigh = ranges.value.length
     var idx = 0

@@ -7,6 +7,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.{last, sum, countDistinct, date_add, datediff, min, lit}
 import scala.collection.mutable.ListBuffer
+import org.apache.spark.broadcast.Broadcast
 
 
 object MKStage2Client extends Logging {
@@ -40,7 +41,9 @@ object MKStage2Client extends Logging {
 
     println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-    Geo2IPHelper.init(localDevEnv,spark)
+    val geoArrays = Geo2IPHelper.init(localDevEnv,spark)
+    val geoIds = spark.sparkContext.broadcast(geoArrays._1)
+    val geoRanges = spark.sparkContext.broadcast(geoArrays._2)
 
     println("Geo Helper Inited " + ((System.nanoTime() - startTime) / 1000000000.0))
 
@@ -90,7 +93,7 @@ object MKStage2Client extends Logging {
           x.isWechat,
           x.resolution,
           x._id,
-          Geo2IPHelper.getLocation(locId),
+          Geo2IPHelper.getLocation(locId,geoIds,geoRanges),
           x.uid,
           x.u_a
         )
