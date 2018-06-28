@@ -4,6 +4,7 @@ package com.zhimo.datahub.common
   * Created by yaning on 5/6/18.
   */
 object ConsUtil {
+
   // mk's server log has a format of: YYYY-DD-MM HH:MM:SS.sss {json content}. Need to filter out the time part
   val MK_SERVER_LOG_ROW_OFFSET = 24
   val MK_SERVER_LOG_DATE_OFFSET = 10
@@ -14,6 +15,8 @@ object ConsUtil {
   val REFUND_VERIFICATION_SUCCESS_ACTION="refund_verify_success"
   val REFUND_CANCELLED_ACTION="refund_cancel"
   val REFUND_APPLY_ACTION="refund_apply"
+  val ADD_STUDENT="student_add"
+  val SIGNUP_CLASS="signup_class"
 
   // refund status
   val toBeVerify = 0

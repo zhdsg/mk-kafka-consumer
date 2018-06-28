@@ -22,6 +22,8 @@ object MKStage1All extends Logging {
     val storageClient = config.getEnvironmentString("storage.client")
     val storageServerPayment = config.getEnvironmentString("storage.server.payment")
     val storageServerRefund = config.getEnvironmentString("storage.server.refund")
+    val storageServerStudent = config.getEnvironmentString("storage.server.student")
+    val storageServerSignup = config.getEnvironmentString("storage.server.signup")
 
 
     val kafkaParams = Map[String, Object](
@@ -55,7 +57,7 @@ object MKStage1All extends Logging {
     if (localDevEnv) {
       ssc.sparkContext.setLogLevel("ERROR")
     } else {
-      ssc.sparkContext.setLogLevel("INFO")
+      ssc.sparkContext.setLogLevel("ERROR")
     }
 
     val streamClient = KafkaUtils.createDirectStream[String, String](
@@ -77,6 +79,8 @@ object MKStage1All extends Logging {
       PersistenceHelper.deleteParquet(storageClient)
       PersistenceHelper.deleteParquet(storageServerPayment)
       PersistenceHelper.deleteParquet(storageServerRefund)
+      PersistenceHelper.deleteParquet(storageServerStudent)
+      PersistenceHelper.deleteParquet(storageServerSignup)
     }
 
     streamClient
@@ -128,12 +132,26 @@ object MKStage1All extends Logging {
             refundActions.contains(action)
           })
 
-
-          PersistenceHelper.saveToParquetStorage(payments, storageServerPayment)
-          PersistenceHelper.saveToParquetStorage(refunds, storageServerRefund)
-
+          val students = df.filter(x => {
+            x.getAs[String]("actionType").equals(ConsUtil.ADD_STUDENT)
+          })
+          val signups = df.filter(x => {
+            x.getAs[String]("actionType").equals(ConsUtil.SIGNUP_CLASS)
+          })
+          payments.printSchema()
           payments.show()
+          refunds.printSchema()
           refunds.show()
+          students.printSchema()
+          students.show()
+          signups.printSchema()
+          signups.show()
+
+          PersistenceHelper.saveToParquetStorage(payments, storageServerPayment, "date")
+          PersistenceHelper.saveToParquetStorage(refunds, storageServerRefund, "date")
+          PersistenceHelper.saveToParquetStorage(students, storageServerStudent, "date")
+          PersistenceHelper.saveToParquetStorage(signups, storageServerSignup, "date")
+
         }
       })
 

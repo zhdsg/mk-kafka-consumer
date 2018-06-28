@@ -7,6 +7,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.{last, sum, countDistinct, date_add, datediff, min, lit}
 import scala.collection.mutable.ListBuffer
+import org.apache.spark.broadcast.Broadcast
 
 
 object MKStage2Client extends Logging {
@@ -34,16 +35,23 @@ object MKStage2Client extends Logging {
 
     if (localDevEnv) {
       spark.sparkContext.setLogLevel("ERROR")
+    }else{
+      spark.sparkContext.setLogLevel("WARN")
     }
 
+    println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-    //val geo2Ip = new Geo2IPHelper(localDevEnv,spark,config)
+    val geoArrays = Geo2IPHelper.init(localDevEnv,spark)
+    val geoIds = spark.sparkContext.broadcast(geoArrays._1)
+    val geoRanges = spark.sparkContext.broadcast(geoArrays._2)
+
+    println("Geo Helper Inited " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     import spark.implicits._
 
     //TODO: parse location
 
-    println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
+
 
     val cleanedUpData = PersistenceHelper.loadFromParquet(spark, storage)
       .as[UserLogRecord]
@@ -76,10 +84,25 @@ object MKStage2Client extends Logging {
         last("u_a", ignoreNulls = true).alias("u_a"),
         last("locId", ignoreNulls = true).alias("locId")
       )
+      .as[ParsedUserLog]
+      .map(x=>{
+        val locId = Geo2IPHelper.ip2LocId(x.locId)
+        ParsedUserLog(
+          x.date,
+          x.appId,
+          x.isWechat,
+          x.resolution,
+          x._id,
+          Geo2IPHelper.getLocation(locId,geoIds,geoRanges),
+          x.uid,
+          x.u_a
+        )
+      })
       .persist()
 
-      val usersForBasics = users
-      .as[ParsedUserLog]
+    println("Users " + users.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+
+    val usersForBasics = users
       .flatMap(x => {
         val lst = ListBuffer(
           DimensionsAndIDs(x.date, x.appId, x.isWechat, x.resolution, x.locId, x.u_a, x._id, x.uid, x.uid, x.uid)
@@ -125,7 +148,7 @@ object MKStage2Client extends Logging {
           x.mau
         )
       })
-      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser")
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser","locId")
       .agg(
         sum("sessions").alias("sessions"),
         sum("dau").alias("dau"),
@@ -134,8 +157,8 @@ object MKStage2Client extends Logging {
       )
     PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), null, processFromStart)
 
-    val usersOnly = cleanedUpData
-      .select("date","uid")
+    val usersOnly = users
+      .select("date", "uid")
       .persist()
 
     println("Users only " + usersOnly.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
@@ -215,30 +238,6 @@ object MKStage2Client extends Logging {
   }
 
 }
-
-case class DimensionsWithoutUA(
-                                date: Date,
-                                appId: Long,
-                                isWechat: Boolean,
-                                resolution: String,
-                                u_a: String,
-                                locId: String,
-                                number: Long
-                              )
-
-case class DimensionsWithLong(
-                               date: Date,
-                               appId: Long,
-                               isWechat: Boolean,
-                               resolution: String,
-                               device: String,
-                               os: String,
-                               osVersion: String,
-                               language: String,
-                               network: String,
-                               browser: String,
-                               number: Long
-                             )
 
 case class ParsedUserLog(
                           date: Date,

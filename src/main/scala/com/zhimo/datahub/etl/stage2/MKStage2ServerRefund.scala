@@ -1,4 +1,4 @@
-package com.zhimo.datahub.etl
+package com.zhimo.datahub.etl.stage2
 
 import java.sql.Date
 
@@ -37,13 +37,16 @@ object MKStage2ServerRefund extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.load(localDevEnv, spark, storage).as[RefundRaw]
+    val rawRecords = PersistenceHelper.loadFromParquet(spark, storage)
+    rawRecords.printSchema()
+    rawRecords.show()
+    val records =rawRecords.as[RefundRaw]
       .map(x => {
         RefundAgg(
           x.purchaseId,
           x.money / 100,
           x.purchaseMoney / 100,
-          x.status match {
+          x.status.getOrElse(0) match {
             case ConsUtil.toBeVerify => ConsUtil.toBeVerifyStr
             case ConsUtil.verifyFailed => ConsUtil.verifyFailedStr
             case ConsUtil.cashRefunded => ConsUtil.cashRefundedStr
@@ -51,10 +54,10 @@ object MKStage2ServerRefund extends Logging{
             case ConsUtil.refundInProgress => ConsUtil.refundInProgressStr
             case ConsUtil.onlineRefunded => ConsUtil.onlineRefundedStr
             case ConsUtil.workingInProgress => ConsUtil.workingInProgressStr
-            case others => ConsUtil.defaultStatsStr
+            case 0 => ConsUtil.defaultStatsStr
           },
-          if (x.verifyTime != null) new Date(x.verifyTime)
-          else if (x.updateTime != null) new Date(x.updateTime)
+          if (x.verifyTime.getOrElse(null) != null) new Date(x.verifyTime.get)
+          else if (x.updateTime.getOrElse(null) != null) new Date(x.updateTime.get)
           else Date.valueOf(x.date)
         )
       }).groupBy("purchaseId").agg(
@@ -79,9 +82,9 @@ final case class RefundRaw(
                              purchaseNumber:String,
                              money:Long,
                              purchaseMoney:Long,
-                             status:Long,
-                             updateTime:Long,
-                             verifyTime:Long,
+                             status:Option[Long],
+                             updateTime:Option[Long],
+                             verifyTime:Option[Long],
 //                             classId:Long,
 //                             courseId:Long,
                              date:String

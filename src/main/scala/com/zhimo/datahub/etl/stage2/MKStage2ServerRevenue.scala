@@ -37,12 +37,14 @@ object MKStage2ServerRevenue  extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.load(localDevEnv, spark, storage).as[PaymentRaw]
+    val rawRecords = PersistenceHelper.loadFromParquet(spark, storage)
+    rawRecords.printSchema()
+    rawRecords.show()
+    val records =rawRecords.as[PaymentRaw]
       .map(x => {
         PaymentAgg(
           x.purchaseNumber,
           x.totalPrice / 100,
-          x.payPrice / 100,
           x.payChannel match {
             case ConsUtil.ALIPAY_IMMEDIATE => ConsUtil.ALIPAY_IMMEDIATE_STR
             case ConsUtil.ALIPAY_QRCODE => ConsUtil.ALIPAY_QRCODE_STR
@@ -57,12 +59,10 @@ object MKStage2ServerRevenue  extends Logging{
         )
       }).groupBy("purchaseNumber").agg(
       last("payChannel", ignoreNulls = true).alias("payChannel"),
-      last("payPrice", ignoreNulls = true).alias("payPrice"),
       last("totalPrice", ignoreNulls = true).alias("totalPrice"),
       last("date", ignoreNulls = true).alias("date")
     ).groupBy("date", "payChannel").agg(
       last("purchaseNumber", ignoreNulls = true).alias("purchaseNumber"),
-      sum("payPrice").alias("payPrice"),
       sum("totalPrice").alias("totalPrice")
     )
     records.show()
@@ -75,7 +75,6 @@ object MKStage2ServerRevenue  extends Logging{
 final case class PaymentRaw(
                         purchaseNumber:String,
                         totalPrice:Long,
-                        payPrice:Long,
                         payChannel:Long,
                         payTime:Long,
                         date:String
@@ -83,7 +82,6 @@ final case class PaymentRaw(
 final case class PaymentAgg(
                              purchaseNumber:String,
                              totalPrice:Long,
-                             payPrice:Long,
                              payChannel:String,
                              date:Date
                            )
