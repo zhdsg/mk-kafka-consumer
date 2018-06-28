@@ -34,6 +34,8 @@ object MKStage2Client extends Logging {
 
     if (localDevEnv) {
       spark.sparkContext.setLogLevel("ERROR")
+    }else{
+      spark.sparkContext.setLogLevel("WARN")
     }
 
     println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
@@ -88,7 +90,7 @@ object MKStage2Client extends Logging {
           x.isWechat,
           x.resolution,
           x._id,
-          Geo2IPHelper.getLocation(locId,localDevEnv,spark),
+          Geo2IPHelper.getLocation(locId),
           x.uid,
           x.u_a
         )

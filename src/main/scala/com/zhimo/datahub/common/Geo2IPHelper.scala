@@ -5,8 +5,8 @@ import org.apache.spark.storage.StorageLevel.MEMORY_ONLY
 
 object Geo2IPHelper {
 
-  @transient private var ids:Array[GeoData] = _
-  @transient private var ranges:Array[GeoDataRange] = _
+  @transient private var ids:org.apache.spark.broadcast.Broadcast[Array[GeoData]] = _
+  @transient private var ranges:org.apache.spark.broadcast.Broadcast[Array[GeoDataRange]] = _
 
   def init(localDevEnv: Boolean, spark: SparkSession ,forceOverwrite:Boolean = false): Unit = {
     val config = new ConfigHelper(this)
@@ -26,28 +26,25 @@ object Geo2IPHelper {
     } else {
       geolocation_ranges = PersistenceHelper.load(localDevEnv, spark, config.getString("location.ranges.table")).as[GeoDataRange].persist(MEMORY_ONLY)
     }
-    ids = geolocation_ids.collect()
-    ranges = geolocation_ranges.collect()
-    println("Geo2IPHelper initialized "+ids.length+" "+ranges.length)
+    ids = spark.sparkContext.broadcast(geolocation_ids.collect())
+    ranges = spark.sparkContext.broadcast(geolocation_ranges.collect())
+    println("Geo2IPHelper initialized "+ids.value.length+" "+ranges.value.length)
   }
 
-  def getLocation(locIP: Long,localDevEnv: Boolean, spark: SparkSession): String = {
-    if(ranges == null || ids == null){
-      init(localDevEnv,spark)
-    }
+  def getLocation(locIP: Long): String = {
     var idxLow = 0
-    var idxHigh = ranges.length
+    var idxHigh = ranges.value.length
     var idx = 0
     var locId:Long = 0
-    var protection = ranges.length
+    var protection = ranges.value.length
 
     while((idxLow<idxHigh) && (protection>0)){
       idx = idxLow + (idxHigh - idxLow) / 2
-      if ((locIP >= ranges(idx).startIpNum) && (locIP <= ranges(idx).endIpNum)) {
-        locId = ranges(idx).locId
-      } else if (locIP > ranges(idx).startIpNum) {
+      if ((locIP >= ranges.value(idx).startIpNum) && (locIP <= ranges.value(idx).endIpNum)) {
+        locId = ranges.value(idx).locId
+      } else if (locIP > ranges.value(idx).startIpNum) {
         idxLow = idx
-      } else if (locIP < ranges(idx).startIpNum) {
+      } else if (locIP < ranges.value(idx).startIpNum) {
         idxHigh = idx
       }
       protection-=1
@@ -56,17 +53,17 @@ object Geo2IPHelper {
       "unknown"
     }else{
       idxLow = 0
-      idxHigh = ids.length
-      protection = ids.length
+      idxHigh = ids.value.length
+      protection = ids.value.length
       var geo:GeoData = null
 
       while((idxLow<idxHigh) && (protection>0)) {
         idx = idxLow + (idxHigh - idxLow) / 2
-        if (locId == ids(idx).locId) {
-          geo = ids(idx)
-        } else if (locId > ids(idx).locId) {
+        if (locId == ids.value(idx).locId) {
+          geo = ids.value(idx)
+        } else if (locId > ids.value(idx).locId) {
           idxLow = idx
-        } else if (locId < ids(idx).locId) {
+        } else if (locId < ids.value(idx).locId) {
           idxHigh = idx
         }
         protection-=1
