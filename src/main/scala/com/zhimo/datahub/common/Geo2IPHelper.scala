@@ -5,10 +5,11 @@ import org.apache.spark.storage.StorageLevel.MEMORY_ONLY
 
 object Geo2IPHelper {
 
-  @transient var ids:Array[GeoData] = _
-  @transient var ranges:Array[GeoDataRange] = _
+  @transient private var ids:Array[GeoData] = _
+  @transient private var ranges:Array[GeoDataRange] = _
 
-  def init(localDevEnv: Boolean, spark: SparkSession, config: ConfigHelper,forceOverwrite:Boolean = false): Unit = {
+  def init(localDevEnv: Boolean, spark: SparkSession ,forceOverwrite:Boolean = false): Unit = {
+    val config = new ConfigHelper(this)
 
     import spark.implicits._
     var geolocation_ids: Dataset[GeoData] = null
@@ -27,9 +28,13 @@ object Geo2IPHelper {
     }
     ids = geolocation_ids.collect()
     ranges = geolocation_ranges.collect()
+    println("Geo2IPHelper initialized "+ids.length+" "+ranges.length)
   }
 
-  def getLocation(locIP: Long): String = {
+  def getLocation(locIP: Long,localDevEnv: Boolean, spark: SparkSession): String = {
+    if(ranges == null || ids == null){
+      init(localDevEnv,spark)
+    }
     var idxLow = 0
     var idxHigh = ranges.length
     var idx = 0

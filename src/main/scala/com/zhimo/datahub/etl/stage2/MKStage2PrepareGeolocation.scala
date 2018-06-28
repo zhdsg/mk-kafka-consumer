@@ -32,7 +32,7 @@ object MKStage2PrepareGeolocation {
 
     println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-    Geo2IPHelper.init(localDevEnv, spark, config,forceOverwrite = true)
+    Geo2IPHelper.init(localDevEnv, spark,forceOverwrite = true)
 
     spark.stop()
     println("Execution duration " + ((System.nanoTime() - startTime) / 1000000000.0))

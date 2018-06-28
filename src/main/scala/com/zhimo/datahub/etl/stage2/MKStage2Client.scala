@@ -38,7 +38,7 @@ object MKStage2Client extends Logging {
 
     println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-    Geo2IPHelper.init(localDevEnv,spark,config)
+    Geo2IPHelper.init(localDevEnv,spark)
 
     println("Geo Helper Inited " + ((System.nanoTime() - startTime) / 1000000000.0))
 
@@ -88,7 +88,7 @@ object MKStage2Client extends Logging {
           x.isWechat,
           x.resolution,
           x._id,
-          Geo2IPHelper.getLocation(locId),
+          Geo2IPHelper.getLocation(locId,localDevEnv,spark),
           x.uid,
           x.u_a
         )
