@@ -7,7 +7,6 @@ import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.{last, sum, countDistinct, date_add, datediff, min, lit}
 import scala.collection.mutable.ListBuffer
-import org.apache.spark.broadcast.Broadcast
 
 
 object MKStage2Client extends Logging {
@@ -24,7 +23,7 @@ object MKStage2Client extends Logging {
 
 
     val sparkConf = new SparkConf()
-      .setAppName("MKKafkaConsumer")
+      .setAppName(ConfigHelper.getClassName(this))
     if (localDevEnv) {
       sparkConf.setMaster("local")
     } else {
@@ -35,13 +34,13 @@ object MKStage2Client extends Logging {
 
     if (localDevEnv) {
       spark.sparkContext.setLogLevel("ERROR")
-    }else{
+    } else {
       spark.sparkContext.setLogLevel("WARN")
     }
 
     println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-    val geoArrays = Geo2IPHelper.init(localDevEnv,spark)
+    val geoArrays = Geo2IPHelper.init(localDevEnv, spark)
     val geoIds = spark.sparkContext.broadcast(geoArrays._1)
     val geoRanges = spark.sparkContext.broadcast(geoArrays._2)
 
@@ -52,15 +51,13 @@ object MKStage2Client extends Logging {
     //TODO: parse location
 
 
-
     val cleanedUpData = PersistenceHelper.loadFromParquet(spark, storage)
       .as[UserLogRecord]
       .map(x => {
         val parsedUrl = ParsingHelper.parseUrl(ParsingHelper.decodeUrl(x.url))
 
         val uid = if (x.uid == null || x.uid.isEmpty) x._id else x.uid
-
-        ParsedUserLog(
+        (ParsedUserLog(
           x.date,
           x.appId,
           parsedUrl.isWechat,
@@ -69,13 +66,38 @@ object MKStage2Client extends Logging {
           x.ip,
           uid,
           x.u_a
-        )
+        ), FunnelData(
+          uid,
+          x.e_a,
+          x.e_c//,
+          //ParsingHelper.decodeUrl(x.e_n),
+          //x.e_v
+        ))
       })
       .persist()
 
     println("Cleaned up data " + cleanedUpData.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
 
+    val funnelAggregation = cleanedUpData
+      .map(x => {
+        x._2
+      })
+      .filter(x=>{
+        (x.e_a!=null)||(x.e_c!=null)//||(!x.e_n.isEmpty)||(x.e_v!=null)
+      })
+      .groupBy("uid", "e_a", "e_c"/*, "e_n", "e_v"*/)
+      .count()
+      .drop("count")
+      .persist()
+
+    println("Funnel Aggregation " + funnelAggregation.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+    //funnelAggregation.show(10000)
+
+
     val users = cleanedUpData
+      .map(x => {
+        x._1
+      })
       .groupBy("date", "uid", "_id")
       .agg(
         last("appId", ignoreNulls = true).alias("appId"),
@@ -85,7 +107,7 @@ object MKStage2Client extends Logging {
         last("locId", ignoreNulls = true).alias("locId")
       )
       .as[ParsedUserLog]
-      .map(x=>{
+      .map(x => {
         val locId = Geo2IPHelper.ip2LocId(x.locId)
         ParsedUserLog(
           x.date,
@@ -93,7 +115,7 @@ object MKStage2Client extends Logging {
           x.isWechat,
           x.resolution,
           x._id,
-          Geo2IPHelper.getLocation(locId,geoIds,geoRanges),
+          Geo2IPHelper.getLocation(locId, geoIds, geoRanges),
           x.uid,
           x.u_a
         )
@@ -148,7 +170,7 @@ object MKStage2Client extends Logging {
           x.mau
         )
       })
-      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser","locId")
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser", "locId")
       .agg(
         sum("sessions").alias("sessions"),
         sum("dau").alias("dau"),
@@ -309,10 +331,10 @@ final case class UserLogRecord(
                                 //cookie:String,
                                 //data:String,
                                 //dir:String,
-                                //e_a: String,
-                                //e_c: String,
-                                //e_n: String,
-                                //e_v:String,
+                                e_a: String,
+                                e_c: String,
+                                e_n: String,
+                                e_v: String,
                                 //fla:String,
                                 //gears:String,
                                 //gt_ms:Long,
@@ -331,6 +353,12 @@ final case class UserLogRecord(
                                 url: String
                                 //urlref: String
                                 //wma:String
-
                               )
 
+final case class FunnelData(
+                             uid: String,
+                             e_a: String,
+                             e_c: String//,
+//                             e_n: String,
+//                             e_v: String
+                           )
