@@ -12,9 +12,7 @@ class ConfigHelper(source: AnyRef) {
   private val config = ConfigFactory.load()
 
   private def path(s:String):String = {
-    val className = source.getClass.getSimpleName
-    val mainClass = className.substring(0,className.length-1)
-    val specificPath = mainClass+"."+s
+    val specificPath = ConfigHelper.getClassName(source)+"."+s
     if(config.hasPath(specificPath)){
       specificPath
     }else{
@@ -108,4 +106,13 @@ class ConfigHelper(source: AnyRef) {
   def atKey(s: String): Config = config.atKey(path(s))
 
   def withValue(s: String, configValue: ConfigValue): Config = config.withValue(path(s),configValue)
+}
+
+object ConfigHelper{
+
+  def getClassName(source:AnyRef): String ={
+    val className = source.getClass.getSimpleName
+    className.substring(0,className.length-1)
+  }
+
 }

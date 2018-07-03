@@ -40,7 +40,7 @@ object MKStage1All extends Logging {
 
 
     val sparkConf = new SparkConf()
-      .setAppName("MKKafkaConsumer")
+      .setAppName(ConfigHelper.getClassName(this))
       .set("spark.cores.max", "1")
       .set("spark.streaming.concurrentJobs", "2")
 
@@ -50,7 +50,7 @@ object MKStage1All extends Logging {
       sparkConf.set("spark.sql.warehouse.dir", "/user/hive/warehouse")
     }
 
-    val ssc = new StreamingContext(sparkConf, Seconds(2))
+    val ssc = new StreamingContext(sparkConf, Seconds(config.getInt("kafka.interval")))
     ssc.checkpoint("/tmp/log-analyzer-streaming")
     if (localDevEnv) {
       ssc.sparkContext.setLogLevel("ERROR")
@@ -94,7 +94,7 @@ object MKStage1All extends Logging {
             })
             .withColumn("date", to_date(from_unixtime(df("t") / 1000)))
 
-          PersistenceHelper.saveToParquetStorage(toSave, storageClient, "date")
+          PersistenceHelper.saveToParquetStorage(toSave, storageClient)
           df.show()
         }
       })
