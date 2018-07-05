@@ -22,7 +22,7 @@ object MKStage2ServerSignup extends Logging{
 
 
     val sparkConf = new SparkConf()
-      .setAppName("MKKafkaConsumer")
+      .setAppName("MKStage2ServerSignup")
     if (localDevEnv) {
       sparkConf.setMaster("local")
     } else {

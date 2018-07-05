@@ -22,7 +22,7 @@ object MKStage2ClientVideoPlayback extends Logging{
 
 
     val sparkConf = new SparkConf()
-      .setAppName("MKKafkaConsumer")
+      .setAppName("MKStage2ClientVideoPlayback")
     if (localDevEnv) {
       sparkConf.setMaster("local")
     } else {
@@ -40,7 +40,7 @@ object MKStage2ClientVideoPlayback extends Logging{
     rawRecords.printSchema()
     rawRecords.show()
     val records =rawRecords.as[VideoPlaybackRaw].filter(log=>{
-      log.e_c.equals("userBehavior") && log.e_a.equals("lessonPlaybackTriggered")
+      log.e_c != null && log.e_a !=null && log.e_c.equals("userBehavior") && log.e_a.equals("lessonPlaybackTriggered")
     }).map(x => {
       VideoPlaybackAgg(
           1,
