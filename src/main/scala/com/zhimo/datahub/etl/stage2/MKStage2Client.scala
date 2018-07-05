@@ -5,7 +5,7 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{last, sum, countDistinct, date_add, datediff, min, lit}
+import org.apache.spark.sql.functions.{last, sum, countDistinct, date_add, datediff, min, lit,collect_list}
 import scala.collection.mutable.ListBuffer
 
 
@@ -91,8 +91,26 @@ object MKStage2Client extends Logging {
       .persist()
 
     println("Funnel Aggregation " + funnelAggregation.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
-    //funnelAggregation.show(10000)
 
+    val funnel = funnelAggregation
+      .groupBy("uid","e_c")
+      .agg(
+        collect_list("e_a").alias("funnelsteps")
+      )
+      .as[FunnelEntry]
+      .map(x=>{
+        FunnelEntry(
+          x.e_c,
+          x.funnelsteps.sortWith(_ < _),
+          x.uid
+        )
+      })
+      .groupBy("e_c","funnelsteps")
+      .agg(
+        countDistinct("uid").alias("count")
+      )
+
+    PersistenceHelper.save(localDevEnv,funnel,config.getEnvironmentString("result.client.funnels"),null,processFromStart)
 
     val users = cleanedUpData
       .map(x => {
@@ -362,3 +380,15 @@ final case class FunnelData(
 //                             e_n: String,
 //                             e_v: String
                            )
+
+final case class FunnelEntry(
+                            e_c:String,
+                            funnelsteps:List[String],
+                            uid:String
+                            )
+
+final case class FunnelResult(
+                              e_c:String,
+                              funnelsteps:List[String],
+                              count:Long
+                            )
