@@ -14,7 +14,7 @@ object PersistenceHelper {
   val config = new ConfigHelper(this)
 
   def getParquetStorage(hiveStorage: String): String = {
-    "tmp/" + hiveStorage + ".parquet"
+    "/user/root/tmp/" + hiveStorage + ".parquet"
   }
 
   def saveToParquetStorage(dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {

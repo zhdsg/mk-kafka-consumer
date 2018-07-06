@@ -22,7 +22,7 @@ object MKStage2ServerRevenue  extends Logging{
 
 
     val sparkConf = new SparkConf()
-      .setAppName("MKKafkaConsumer")
+      .setAppName("MKStage2ServerRevenue")
     if (localDevEnv) {
       sparkConf.setMaster("local")
     } else {
