@@ -59,6 +59,7 @@ object PersistenceHelper {
     save(localEnvironment,toShow,table,partitionBy,overwrite)
     if(showResults) {
       toShow.show()
+      toShow.unpersist()
     }
   }
 

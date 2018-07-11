@@ -5,7 +5,9 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{last, sum, countDistinct, date_add, datediff, min, lit,collect_list}
+import org.apache.spark.sql.functions.{collect_list, countDistinct, date_add, datediff, last, lit, min, sum}
+import org.apache.spark.storage.StorageLevel
+
 import scala.collection.mutable.ListBuffer
 
 
@@ -74,9 +76,8 @@ object MKStage2Client extends Logging {
           //x.e_v
         ))
       })
-      .persist()
 
-    println("Cleaned up data " + cleanedUpData.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+    println("Cleaned up data "+ ((System.nanoTime() - startTime) / 1000000000.0))
 
     val funnelAggregation = cleanedUpData
       .map(x => {
@@ -88,9 +89,9 @@ object MKStage2Client extends Logging {
       .groupBy("uid", "e_a", "e_c"/*, "e_n", "e_v"*/)
       .count()
       .drop("count")
-      .persist()
+      .persist(StorageLevel.MEMORY_AND_DISK)
 
-    println("Funnel Aggregation " + funnelAggregation.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+    println("Funnel Aggregation " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     val funnel = funnelAggregation
       .groupBy("uid","e_c")
@@ -138,9 +139,9 @@ object MKStage2Client extends Logging {
           x.u_a
         )
       })
-      .persist()
+      .persist(StorageLevel.MEMORY_AND_DISK)
 
-    println("Users " + users.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+    println("Users " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     val usersForBasics = users
       .flatMap(x => {
@@ -158,6 +159,10 @@ object MKStage2Client extends Logging {
         }
         lst
       })
+      .persist(StorageLevel.MEMORY_AND_DISK)
+
+    println("Users for basics " + ((System.nanoTime() - startTime) / 1000000000.0))
+
 
     val basics = usersForBasics
       .groupBy("date", "appId", "isWechat", "resolution", "u_a", "locId")
@@ -195,20 +200,22 @@ object MKStage2Client extends Logging {
         sum("wau").alias("wau"),
         sum("mau").alias("mau")
       )
+
     PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), null, processFromStart)
+    println("Basics saved " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     val usersOnly = users
       .select("date", "uid")
-      .persist()
+      .persist(StorageLevel.MEMORY_AND_DISK)
 
-    println("Users only " + usersOnly.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+    println("Users only " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     val firstVisit = usersOnly
       .groupBy("uid")
       .agg(min("date").alias("earliestDate"))
-      .persist()
+      .persist(StorageLevel.MEMORY_AND_DISK)
 
-    println("First Visit " + firstVisit.count() + " " + ((System.nanoTime() - startTime) / 1000000000.0))
+    println("First Visit " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     val d1returning = usersOnly
       .join(firstVisit, "uid")
@@ -270,8 +277,12 @@ object MKStage2Client extends Logging {
     val retentions = d1retention
       .join(d7retention, Seq("date"), "full")
       .join(d30retention, Seq("date"), "full")
+
+
     PersistenceHelper.saveAndShow(localDevEnv, showResults, retentions.toDF(), config.getEnvironmentString("result.client.retentions"), null, processFromStart)
 
+    println("Computation duration " + ((System.nanoTime() - startTime) / 1000000000.0))
+    Thread.sleep(10000000L)
 
     spark.stop()
     println("Execution duration " + ((System.nanoTime() - startTime) / 1000000000.0))
