@@ -1,11 +1,12 @@
-package com.zhimo.datahub.etl
+package com.zhimo.datahub.etl.stage2
 
 import java.sql.Date
 
 import com.zhimo.datahub.common.{ConfigHelper, ConsUtil, PersistenceHelper, SparkSessionSingleton}
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{last, sum,count}
+import org.apache.spark.sql.functions.{count, sum}
+import org.apache.spark.sql.types.LongType
 
 /**
   * Created by yaning on 6/20/18.
@@ -22,7 +23,7 @@ object MKStage2ServerRefund extends Logging{
 
 
     val sparkConf = new SparkConf()
-      .setAppName("MKKafkaConsumer")
+      .setAppName("MKStage2ServerRefund")
     if (localDevEnv) {
       sparkConf.setMaster("local")
     } else {
@@ -37,36 +38,35 @@ object MKStage2ServerRefund extends Logging{
 
     import spark.implicits._
     //TODO: load raw data
-    val records = PersistenceHelper.load(localDevEnv, spark, storage).as[RefundRaw]
+    val rawRecords = PersistenceHelper.loadFromParquet(spark, storage)
+    rawRecords.printSchema()
+    rawRecords.show()
+    val records =rawRecords.as[RefundRaw]
       .map(x => {
         RefundAgg(
           x.purchaseId,
           x.money / 100,
           x.purchaseMoney / 100,
-          x.status match {
-            case ConsUtil.toBeVerify => ConsUtil.toBeVerifyStr
-            case ConsUtil.verifyFailed => ConsUtil.verifyFailedStr
-            case ConsUtil.cashRefunded => ConsUtil.cashRefundedStr
-            case ConsUtil.canceled => ConsUtil.canceledStr
-            case ConsUtil.refundInProgress => ConsUtil.refundInProgressStr
-            case ConsUtil.onlineRefunded => ConsUtil.onlineRefundedStr
-            case ConsUtil.workingInProgress => ConsUtil.workingInProgressStr
-            case others => ConsUtil.defaultStatsStr
-          },
-          if (x.verifyTime != null) new Date(x.verifyTime)
-          else if (x.updateTime != null) new Date(x.updateTime)
-          else Date.valueOf(x.date)
+          x.actionType
+          match {
+            case ConsUtil.REFUND_APPLY_ACTION=> ConsUtil.toBeVerifyStr
+            case ConsUtil.REFUND_VERIFICATION_FAILED_ACTION => ConsUtil.verifyFailedStr
+            case ConsUtil.REFUND_SUCCESS_ACTION => ConsUtil.refundedStr
+            case ConsUtil.REFUND_CANCELLED_ACTION => ConsUtil.canceledStr
+          }
+          ,
+//          if (x.verifyTime.getOrElse(null) != null) new Date(x.verifyTime.get)
+//          else if (x.updateTime.getOrElse(null) != null) new Date(x.updateTime.get)
+//          else Date.valueOf(x.date)
+          Date.valueOf(x.date)
         )
-      }).groupBy("purchaseId").agg(
-      last("refundMoney", ignoreNulls = true).alias("refundMoney"),
-      last("purchaseMoney", ignoreNulls = true).alias("purchaseMoney"),
-      last("status", ignoreNulls = true).alias("status"),
-      last("date", ignoreNulls = true).alias("date")
-    ).groupBy("date", "status").agg(
+      })
+      .groupBy("date","status").agg(
       count("purchaseId").alias("cnt"),
       sum("refundMoney").alias("refundMoney"),
       sum("purchaseMoney").alias("purchaseMoney")
     )
+    records.printSchema()
     records.show()
     PersistenceHelper.save(localDevEnv, records.toDF(), config.getEnvironmentString("result.server.refund"), "date", processFromStart)
     println("Execution duration " + ((System.nanoTime() - startTime) / 1000000000.0))
@@ -75,16 +75,14 @@ object MKStage2ServerRefund extends Logging{
 }
 
 final case class RefundRaw(
-                             purchaseId:Long,
-                             purchaseNumber:String,
-                             money:Long,
-                             purchaseMoney:Long,
-                             status:Long,
-                             updateTime:Long,
-                             verifyTime:Long,
-//                             classId:Long,
-//                             courseId:Long,
-                             date:String
+                            actionType:String,
+                            purchaseId:Long,
+                            money:Long,
+                            purchaseMoney:Long,
+//                            status:Option[Long],
+                            //                             updateTime:Option[Long],
+                            //                             verifyTime:Option[Long],
+                            date:String
                            )
 final case class RefundAgg(
                              purchaseId:Long,

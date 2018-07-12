@@ -13,26 +13,39 @@ object Geo2IPHelper {
 
     import spark.implicits._
     var geolocation: Dataset[GeoData] = null
+    val table = config.getString("location.table")
 
-    if (forceOverwrite || config.getBoolean("location.overwrite") || (!PersistenceHelper.exists(localDevEnv, spark, config.getString("location.table")))) {
-      geolocation = spark.read.option("header", "true").csv(config.getString("location.source")).withColumn("StartIPNum", $"StartIPNum".cast("Long")).withColumn("EndIPNum", $"EndIPNum".cast("Long")).as[GeoData].persist(MEMORY_ONLY)
-      PersistenceHelper.save(localEnvironment = localDevEnv, dataFrame = geolocation.toDF(), table = config.getString("location.table"), partitionBy = null, overwrite = true)
+    if (forceOverwrite || config.getBoolean("location.overwrite") || (!PersistenceHelper.exists(localDevEnv, spark, table))) {
+      if(localDevEnv){
+        geolocation = spark.read.option("header", "true").csv(config.getString("location.source"))
+          .withColumn("StartIPNum", $"StartIPNum".cast("Long"))
+          .withColumn("EndIPNum", $"EndIPNum".cast("Long"))
+          .withColumnRenamed("Local", "local_city")
+          .withColumnRenamed("Country", "country")
+          .as[GeoData].persist(MEMORY_ONLY)
+      }else {
+        geolocation = spark.read.option("header", "true").csv(config.getString("location.source"))
+          .withColumn("StartIPNum", $"StartIPNum".cast("Long"))
+          .withColumn("EndIPNum", $"EndIPNum".cast("Long")).as[GeoData].persist(MEMORY_ONLY)
+      }
+      PersistenceHelper.save(localEnvironment = localDevEnv, dataFrame = geolocation.toDF(), table, partitionBy = null, overwrite = true)
     } else {
       if(localDevEnv) {
-        geolocation = PersistenceHelper.load(localDevEnv, spark, config.getString("location.table")).withColumn("StartIPNum", $"StartIPNum".cast("Long")).withColumn("EndIPNum", $"EndIPNum".cast("Long"))
+        geolocation = PersistenceHelper.load(localDevEnv, spark, table)
+          .withColumn("StartIPNum", $"StartIPNum".cast("Long"))
+          .withColumn("EndIPNum", $"EndIPNum".cast("Long"))
           .withColumnRenamed("Local", "local_city")
           .withColumnRenamed("Country", "country")
           .as[GeoData].persist(MEMORY_ONLY)
       }
       else {
-	//PersistenceHelper.load(localDevEnv, spark, config.getString("location.table")).show()
-        geolocation = PersistenceHelper.load(localDevEnv, spark, config.getString("location.table"))
+        geolocation = PersistenceHelper.load(localDevEnv, spark, table)
           .filter(x=>{
             (x.get(x.fieldIndex("startipnum"))!=null)&&(x.get(x.fieldIndex("endipnum"))!=null)
           })
           .withColumn("StartIPNum", $"startipnum".cast("Long"))
           .withColumn("EndIPNum", $"endipnum".cast("Long"))
-	  .filter(x=>{
+	        .filter(x=>{
             (x.get(x.fieldIndex("StartIPNum"))!=null)&&(x.get(x.fieldIndex("EndIPNum"))!=null)
           })
           .as[GeoData]
