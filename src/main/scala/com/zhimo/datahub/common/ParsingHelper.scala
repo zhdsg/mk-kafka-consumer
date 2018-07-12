@@ -8,7 +8,11 @@ import org.uaparser.scala.{Client, Parser}
 object ParsingHelper {
 
   def decodeUrl(str:String): String ={
-    URLDecoder.decode(if(str!=null)str else "","utf-8")
+    try {
+      URLDecoder.decode(if (str != null) str else "", "utf-8")
+    }catch {
+      case _:Throwable => str
+    }
   }
 
   @transient private val parser:Parser = Parser.default

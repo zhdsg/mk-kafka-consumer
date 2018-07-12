@@ -14,7 +14,12 @@ object PersistenceHelper {
   val config = new ConfigHelper(this)
 
   def getParquetStorage(hiveStorage: String): String = {
-    "/user/root/tmp/" + hiveStorage + ".parquet"
+    val localDevEnv = config.getBoolean("localDev")
+    if(localDevEnv) {
+      "tmp/" + hiveStorage + ".parquet"
+    }else{
+      "/user/root/tmp/" + hiveStorage + ".parquet"
+    }
   }
 
   def saveToParquetStorage(dataFrame: DataFrame, table: String, partitionBy: String = null, overwrite: Boolean = false): Unit = {
@@ -59,6 +64,7 @@ object PersistenceHelper {
     save(localEnvironment,toShow,table,partitionBy,overwrite)
     if(showResults) {
       toShow.show()
+      toShow.unpersist()
     }
   }
 
