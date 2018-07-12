@@ -25,7 +25,14 @@ object Geo2IPHelper {
           .as[GeoData].persist(MEMORY_ONLY)
       }
       else {
-        geolocation = PersistenceHelper.load(localDevEnv, spark, config.getString("location.table")).withColumn("StartIPNum", $"StartIPNum".cast("Long")).withColumn("EndIPNum", $"EndIPNum".cast("Long")).as[GeoData].persist(MEMORY_ONLY)
+        geolocation = PersistenceHelper.load(localDevEnv, spark, config.getString("location.table"))
+          .filter(x=>{
+            (x.get(x.fieldIndex("StartIPNum"))!=null)&&(x.get(x.fieldIndex("EndIPNum"))!=null)
+          })
+          .withColumn("StartIPNum", $"StartIPNum".cast("Long"))
+          .withColumn("EndIPNum", $"EndIPNum".cast("Long"))
+          .as[GeoData]
+          .persist(MEMORY_ONLY)
       }
     }
 
