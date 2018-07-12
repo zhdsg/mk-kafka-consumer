@@ -42,9 +42,7 @@ object MKStage2Client extends Logging {
 
     println("Before analysis " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-    val geoArrays = Geo2IPHelper.init(localDevEnv, spark)
-    val geoIds = spark.sparkContext.broadcast(geoArrays._1)
-    val geoRanges = spark.sparkContext.broadcast(geoArrays._2)
+    val geo = spark.sparkContext.broadcast(Geo2IPHelper.init(localDevEnv, spark))
 
     println("Geo Helper Inited " + ((System.nanoTime() - startTime) / 1000000000.0))
 
@@ -134,7 +132,7 @@ object MKStage2Client extends Logging {
           x.isWechat,
           x.resolution,
           x._id,
-          Geo2IPHelper.getLocation(locId, geoIds, geoRanges),
+          Geo2IPHelper.getLocation(locId, geo),
           x.uid,
           x.u_a
         )
@@ -281,8 +279,8 @@ object MKStage2Client extends Logging {
 
     PersistenceHelper.saveAndShow(localDevEnv, showResults, retentions.toDF(), config.getEnvironmentString("result.client.retentions"), null, processFromStart)
 
-    println("Computation duration " + ((System.nanoTime() - startTime) / 1000000000.0))
-    Thread.sleep(10000000L)
+//    println("Computation duration " + ((System.nanoTime() - startTime) / 1000000000.0))
+//    Thread.sleep(10000000L)
 
     spark.stop()
     println("Execution duration " + ((System.nanoTime() - startTime) / 1000000000.0))
