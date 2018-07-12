@@ -18,7 +18,15 @@ object Geo2IPHelper {
       geolocation = spark.read.option("header", "true").csv(config.getString("location.source")).withColumn("StartIPNum", $"StartIPNum".cast("Long")).withColumn("EndIPNum", $"EndIPNum".cast("Long")).as[GeoData].persist(MEMORY_ONLY)
       PersistenceHelper.save(localEnvironment = localDevEnv, dataFrame = geolocation.toDF(), table = config.getString("location.table"), partitionBy = null, overwrite = true)
     } else {
-      geolocation = PersistenceHelper.load(localDevEnv, spark, config.getString("location.table")).withColumn("StartIPNum", $"StartIPNum".cast("Long")).withColumn("EndIPNum", $"EndIPNum".cast("Long")).as[GeoData].persist(MEMORY_ONLY)
+      if(localDevEnv) {
+        geolocation = PersistenceHelper.load(localDevEnv, spark, config.getString("location.table")).withColumn("StartIPNum", $"StartIPNum".cast("Long")).withColumn("EndIPNum", $"EndIPNum".cast("Long"))
+          .withColumnRenamed("Local", "local_city")
+          .withColumnRenamed("Country", "country")
+          .as[GeoData].persist(MEMORY_ONLY)
+      }
+      else {
+        geolocation = PersistenceHelper.load(localDevEnv, spark, config.getString("location.table")).withColumn("StartIPNum", $"StartIPNum".cast("Long")).withColumn("EndIPNum", $"EndIPNum".cast("Long")).as[GeoData].persist(MEMORY_ONLY)
+      }
     }
 
 
@@ -48,7 +56,7 @@ object Geo2IPHelper {
     if (gd == null) {
       "unknown"
     } else {
-      gd.Country + " " + gd.Local
+      gd.country + " " + gd.local_city
     }
   }
 
@@ -74,6 +82,6 @@ object Geo2IPHelper {
 final case class GeoData(
                           StartIPNum: Long,
                           EndIPNum:Long,
-                          Country: String,
-                          Local: String
+                          country: String,
+                          local_city: String
                         )
