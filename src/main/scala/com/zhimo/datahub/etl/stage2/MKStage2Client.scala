@@ -98,6 +98,7 @@ object MKStage2Client extends Logging {
       )
       .as[FunnelEntry]
       .map(x=>{
+        println(x.funnelsteps)
         FunnelEntry(
           x.e_c,
           x.funnelsteps.sortWith(_ < _),
@@ -109,7 +110,7 @@ object MKStage2Client extends Logging {
         countDistinct("uid").alias("count")
       )
 
-    PersistenceHelper.save(localDevEnv,funnel,config.getEnvironmentString("result.client.funnels"),null,processFromStart)
+    PersistenceHelper.saveAndShow(localDevEnv,showResults,funnel,config.getEnvironmentString("result.client.funnels"),null,processFromStart)
 
     val users = cleanedUpData
       .map(x => {
