@@ -56,7 +56,6 @@ object MKStage2Client extends Logging {
       .map(x => {
         val parsedUrl = ParsingHelper.parseUrl(ParsingHelper.decodeUrl(x.url))
 
-        val uid = if (x.uid == null || x.uid.isEmpty) x._id else x.uid
         (ParsedUserLog(
           x.date,
           x.appId,
@@ -64,10 +63,10 @@ object MKStage2Client extends Logging {
           x.res,
           x._id,
           x.ip,
-          uid,
+          x.uid,
           x.u_a
         ), FunnelData(
-          uid,
+          x.uid,
           x.e_a,
           x.e_c//,
           //ParsingHelper.decodeUrl(x.e_n),
@@ -98,7 +97,6 @@ object MKStage2Client extends Logging {
       )
       .as[FunnelEntry]
       .map(x=>{
-        println(x.funnelsteps)
         FunnelEntry(
           x.e_c,
           x.funnelsteps.sortWith(_ < _),
