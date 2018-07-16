@@ -125,7 +125,8 @@ object MKStage2Client extends Logging {
       .as[ParsedUserLog]
       .map(x => {
         val locId = Geo2IPHelper.ip2LocId(x.locId)
-        ParsedUserLog(
+        val u_a = ParsingHelper.parseUA(x.u_a)
+        ParsedUserLogParsedUA(
           x.date,
           x.appId,
           x.isWechat,
@@ -133,7 +134,12 @@ object MKStage2Client extends Logging {
           x._id,
           Geo2IPHelper.getLocation(locId, geo),
           x.uid,
-          x.u_a
+          u_a.client.device.model.getOrElse("Unknown device"),
+          u_a.client.os.family,
+          u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
+          u_a.language,
+          u_a.connection,
+          u_a.client.userAgent.family
         )
       })
       .persist(StorageLevel.MEMORY_AND_DISK)
@@ -142,42 +148,15 @@ object MKStage2Client extends Logging {
 
     val usersForBasics = users
       .flatMap(x => {
-        val u_a = ParsingHelper.parseUA(x.u_a)
         val lst = ListBuffer(
-          DimensionsAndIDs(
-            x.date,
-            x.appId,
-            x.isWechat,
-            x.resolution,
-            x.locId,
-            u_a.client.device.model.getOrElse("Unknown device"),
-            u_a.client.os.family,
-            u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
-            u_a.language,
-            u_a.connection,
-            u_a.client.userAgent.family,
-            x._id, x.uid, x.uid, x.uid)
+          DimensionsAndIDs(x.date, x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, x._id, x.uid, x.uid, x.uid)
         )
         for (days <- 1 to 30) {
           if (days <= 7) {
-            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId,
-              lst.head.device,
-              lst.head.os,
-              lst.head.osVersion,
-              lst.head.language,
-              lst.head.network,
-              lst.head.browser,
-              null, null, x.uid, x.uid)
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, x.uid, x.uid)
             lst += y
           } else {
-            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId,
-              lst.head.device,
-              lst.head.os,
-              lst.head.osVersion,
-              lst.head.language,
-              lst.head.network,
-              lst.head.browser,
-              null, null, null, x.uid)
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, null, x.uid)
             lst += y
           }
         }
@@ -186,7 +165,6 @@ object MKStage2Client extends Logging {
       .persist(StorageLevel.MEMORY_AND_DISK)
 
     println("Users for basics " + ((System.nanoTime() - startTime) / 1000000000.0))
-
 
     val basics = usersForBasics
       .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser", "locId")
@@ -296,6 +274,22 @@ case class ParsedUserLog(
                           locId: String,
                           uid: String,
                           u_a: String
+                        )
+
+case class ParsedUserLogParsedUA(
+                          date: Date,
+                          appId: Long,
+                          isWechat: Boolean,
+                          resolution: String,
+                          _id: String,
+                          locId: String,
+                          uid: String,
+                          device: String,
+                          os: String,
+                          osVersion: String,
+                          language: String,
+                          network: String,
+                          browser: String
                         )
 
 case class DimensionsAndIDs(
