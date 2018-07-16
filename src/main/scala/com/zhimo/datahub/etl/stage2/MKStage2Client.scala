@@ -56,7 +56,6 @@ object MKStage2Client extends Logging {
       .map(x => {
         val parsedUrl = ParsingHelper.parseUrl(ParsingHelper.decodeUrl(x.url))
 
-        val uid = if (x.uid == null || x.uid.isEmpty) x._id else x.uid
         (ParsedUserLog(
           x.date,
           x.appId,
@@ -64,10 +63,10 @@ object MKStage2Client extends Logging {
           x.res,
           x._id,
           x.ip,
-          uid,
+          x.uid,
           x.u_a
         ), FunnelData(
-          uid,
+          x.uid,
           x.e_a,
           x.e_c//,
           //ParsingHelper.decodeUrl(x.e_n),
@@ -109,7 +108,7 @@ object MKStage2Client extends Logging {
         countDistinct("uid").alias("count")
       )
 
-    PersistenceHelper.save(localDevEnv,funnel,config.getEnvironmentString("result.client.funnels"),null,processFromStart)
+    PersistenceHelper.saveAndShow(localDevEnv,showResults,funnel,config.getEnvironmentString("result.client.funnels"),null,processFromStart)
 
     val users = cleanedUpData
       .map(x => {

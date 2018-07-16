@@ -9,3 +9,4 @@ metastore_db/
 sessions.parquet/
 spark-warehouse/
 /tableau/.~*
+src/main/resources/application-local.conf

@@ -52,7 +52,10 @@ object MKStage1All extends Logging {
       sparkConf.set("spark.sql.warehouse.dir", "/user/hive/warehouse")
     }
 
-    val ssc = new StreamingContext(sparkConf, Seconds(config.getInt("kafka.interval")))
+    val ssc = new StreamingContext(sparkConf, Seconds(
+      if(localDevEnv) 2 else config.getInt("kafka.interval")
+    ))
+
     ssc.checkpoint("/tmp/log-analyzer-streaming")
     if (localDevEnv) {
       ssc.sparkContext.setLogLevel("ERROR")

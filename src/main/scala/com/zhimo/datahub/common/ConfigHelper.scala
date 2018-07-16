@@ -9,7 +9,8 @@ import com.typesafe.config._
 
 class ConfigHelper(source: AnyRef) {
 
-  private val config = ConfigFactory.load()
+  private val localConfig = ConfigFactory.load("application-local")
+  private val config = if(localConfig==null) ConfigFactory.load() else localConfig
 
   private def path(s:String):String = {
     val specificPath = ConfigHelper.getClassName(source)+"."+s
