@@ -5,7 +5,7 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{collect_list, countDistinct, date_add, datediff, last, lit, min, sum}
+import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, sum}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.mutable.ListBuffer
@@ -47,8 +47,6 @@ object MKStage2Client extends Logging {
     println("Geo Helper Inited " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     import spark.implicits._
-
-    //TODO: parse location
 
 
     val cleanedUpData = PersistenceHelper.loadFromParquet(spark, storage)
@@ -151,12 +149,12 @@ object MKStage2Client extends Logging {
         val lst = ListBuffer(
           DimensionsAndIDs(x.date, x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, x._id, x.uid, x.uid, x.uid)
         )
-        for (days <- 1 to 30) {
-          if (days <= 7) {
-            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, x.uid, x.uid)
+        for (days <- 1L to 30L) {
+          if (days <= 7L) {
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000L * 60L * 60L * 24L)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, x.uid, x.uid)
             lst += y
           } else {
-            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, null, x.uid)
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000L * 60L * 60L * 24L)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, null, x.uid)
             lst += y
           }
         }
@@ -178,6 +176,7 @@ object MKStage2Client extends Logging {
 
     PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), null, processFromStart)
     println("Basics saved " + ((System.nanoTime() - startTime) / 1000000000.0))
+    
 
     val usersOnly = users
       .select("date", "uid")
