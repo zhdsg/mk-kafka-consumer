@@ -5,9 +5,9 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, sum}
+import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, desc}
 import org.apache.spark.storage.StorageLevel
-
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 
@@ -88,6 +88,20 @@ object MKStage2Client extends Logging {
 
     println("Funnel Aggregation " + ((System.nanoTime() - startTime) / 1000000000.0))
 
+
+
+    val funnelCounts = funnelAggregation
+      .groupBy("e_c","e_a")
+      .count()
+      .drop("e_c")
+      .as[FunnelCount]
+      .collectAsList()
+
+    var funnelOrder = Map[String,Long]()
+    for(x <- funnelCounts.asScala){
+      funnelOrder += (x.e_a -> x.count)
+    }
+
     val funnel = funnelAggregation
       .groupBy("uid","e_c")
       .agg(
@@ -95,9 +109,12 @@ object MKStage2Client extends Logging {
       )
       .as[FunnelEntry]
       .map(x=>{
+        val steps = x.funnelsteps.sortWith((a,b)=>{
+          funnelOrder.getOrElse(a,0L)>funnelOrder.getOrElse(b,0L)
+        })
         FunnelEntry(
           x.e_c,
-          x.funnelsteps.sortWith(_ < _),
+          steps,
           x.uid
         )
       })
@@ -263,6 +280,11 @@ object MKStage2Client extends Logging {
   }
 
 }
+
+case class FunnelCount(
+  e_a:String,
+  count:Long
+               )
 
 case class ParsedUserLog(
                           date: Date,
