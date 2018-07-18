@@ -5,7 +5,7 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{collect_list, countDistinct, date_add, datediff, last, lit, min, sum}
+import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, sum}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.mutable.ListBuffer
@@ -47,8 +47,6 @@ object MKStage2Client extends Logging {
     println("Geo Helper Inited " + ((System.nanoTime() - startTime) / 1000000000.0))
 
     import spark.implicits._
-
-    //TODO: parse location
 
 
     val cleanedUpData = PersistenceHelper.loadFromParquet(spark, storage)
@@ -125,7 +123,8 @@ object MKStage2Client extends Logging {
       .as[ParsedUserLog]
       .map(x => {
         val locId = Geo2IPHelper.ip2LocId(x.locId)
-        ParsedUserLog(
+        val u_a = ParsingHelper.parseUA(x.u_a)
+        ParsedUserLogParsedUA(
           x.date,
           x.appId,
           x.isWechat,
@@ -133,7 +132,12 @@ object MKStage2Client extends Logging {
           x._id,
           Geo2IPHelper.getLocation(locId, geo),
           x.uid,
-          x.u_a
+          u_a.client.device.model.getOrElse("Unknown device"),
+          u_a.client.os.family,
+          u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
+          u_a.language,
+          u_a.connection,
+          u_a.client.userAgent.family
         )
       })
       .persist(StorageLevel.MEMORY_AND_DISK)
@@ -143,14 +147,14 @@ object MKStage2Client extends Logging {
     val usersForBasics = users
       .flatMap(x => {
         val lst = ListBuffer(
-          DimensionsAndIDs(x.date, x.appId, x.isWechat, x.resolution, x.locId, x.u_a, x._id, x.uid, x.uid, x.uid)
+          DimensionsAndIDs(x.date, x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, x._id, x.uid, x.uid, x.uid)
         )
-        for (days <- 1 to 30) {
-          if (days <= 7) {
-            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.u_a, null, null, x.uid, x.uid)
+        for (days <- 1L to 30L) {
+          if (days <= 7L) {
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000L * 60L * 60L * 24L)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, x.uid, x.uid)
             lst += y
           } else {
-            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000 * 60 * 60 * 24)), x.appId, x.isWechat, x.resolution, x.locId, x.u_a, null, null, null, x.uid)
+            val y = DimensionsAndIDs(new Date(x.date.getTime + (days * 1000L * 60L * 60L * 24L)), x.appId, x.isWechat, x.resolution, x.locId, x.device, x.os, x.osVersion, x.language, x.network, x.browser, null, null, null, x.uid)
             lst += y
           }
         }
@@ -160,46 +164,19 @@ object MKStage2Client extends Logging {
 
     println("Users for basics " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-
     val basics = usersForBasics
-      .groupBy("date", "appId", "isWechat", "resolution", "u_a", "locId")
+      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser", "locId")
       .agg(
         countDistinct("sessionsIDs").alias("sessions"),
         countDistinct("dauIDs").alias("dau"),
         countDistinct("wauIDs").alias("wau"),
         countDistinct("mauIDs").alias("mau")
       )
-      .as[DimensionsMetricsWithoutUA]
-      .map(x => {
-        val u_a = ParsingHelper.parseUA(x.u_a)
-        DimensionsMetrics(
-          x.date,
-          x.appId,
-          x.isWechat,
-          x.resolution,
-          x.locId,
-          u_a.client.device.model.getOrElse("Unknown device"),
-          u_a.client.os.family,
-          u_a.client.os.family + " " + u_a.client.os.major.getOrElse(""),
-          u_a.language,
-          u_a.connection,
-          u_a.client.userAgent.family,
-          x.sessions,
-          x.dau,
-          x.wau,
-          x.mau
-        )
-      })
-      .groupBy("date", "appId", "isWechat", "resolution", "device", "os", "osVersion", "language", "network", "browser", "locId")
-      .agg(
-        sum("sessions").alias("sessions"),
-        sum("dau").alias("dau"),
-        sum("wau").alias("wau"),
-        sum("mau").alias("mau")
-      )
+      .as[DimensionsMetrics]
 
     PersistenceHelper.saveAndShow(localDevEnv, showResults, basics.toDF(), config.getEnvironmentString("result.client.basics"), null, processFromStart)
     println("Basics saved " + ((System.nanoTime() - startTime) / 1000000000.0))
+    
 
     val usersOnly = users
       .select("date", "uid")
@@ -298,31 +275,39 @@ case class ParsedUserLog(
                           u_a: String
                         )
 
+case class ParsedUserLogParsedUA(
+                          date: Date,
+                          appId: Long,
+                          isWechat: Boolean,
+                          resolution: String,
+                          _id: String,
+                          locId: String,
+                          uid: String,
+                          device: String,
+                          os: String,
+                          osVersion: String,
+                          language: String,
+                          network: String,
+                          browser: String
+                        )
+
 case class DimensionsAndIDs(
                              date: Date,
                              appId: Long,
                              isWechat: Boolean,
                              resolution: String,
                              locId: String,
-                             u_a: String,
+                             device: String,
+                             os: String,
+                             osVersion: String,
+                             language: String,
+                             network: String,
+                             browser: String,
                              sessionsIDs: String,
                              dauIDs: String,
                              wauIDs: String,
                              mauIDs: String
                            )
-
-case class DimensionsMetricsWithoutUA(
-                                       date: Date,
-                                       appId: Long,
-                                       isWechat: Boolean,
-                                       resolution: String,
-                                       locId: String,
-                                       u_a: String,
-                                       sessions: String,
-                                       dau: Long,
-                                       wau: Long,
-                                       mau: Long
-                                     )
 
 case class DimensionsMetrics(
                               date: Date,
@@ -336,7 +321,7 @@ case class DimensionsMetrics(
                               language: String,
                               network: String,
                               browser: String,
-                              sessions: String,
+                              sessions: Long,
                               dau: Long,
                               wau: Long,
                               mau: Long
