@@ -5,11 +5,11 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, desc}
+import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, expr , max, date_add,lit,desc}
 import org.apache.spark.storage.StorageLevel
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
-
+import java.nio.file.{Paths, Files}
 
 object MKStage2Client extends Logging {
 
@@ -23,6 +23,16 @@ object MKStage2Client extends Logging {
     // Template: Specify permanent storage Parquet file
     val storage = config.getEnvironmentString("storage.client")
 
+    var processedUntil = new Date(0L)
+    val pathToProcessedUntil = Paths.get(config.getString("processedUntilFile"))
+    if(Files.exists(pathToProcessedUntil)){
+      val lines = Files.readAllLines(pathToProcessedUntil)
+      if(lines.size()>0){
+        processedUntil = Date.valueOf(lines.get(0))
+      }
+    }
+
+    println(processedUntil.toString)
 
     val sparkConf = new SparkConf()
       .setAppName(ConfigHelper.getClassName(this))
@@ -64,22 +74,21 @@ object MKStage2Client extends Logging {
           x.uid,
           x.u_a
         ), FunnelData(
-          x.uid,
-          x.e_a,
-          x.e_c//,
+          if(x.uid == null || x.uid.isEmpty) x._id else x.uid,
+          //x.e_a,
+          parsedUrl.urlWithoutIds,
+          ""//,
           //ParsingHelper.decodeUrl(x.e_n),
           //x.e_v
         ))
       })
-
-    println("Cleaned up data "+ ((System.nanoTime() - startTime) / 1000000000.0))
 
     val funnelAggregation = cleanedUpData
       .map(x => {
         x._2
       })
       .filter(x=>{
-        (x.e_a!=null)||(x.e_c!=null)//||(!x.e_n.isEmpty)||(x.e_v!=null)
+        (x.e_a!=null)//||(x.e_c!=null)//||(!x.e_n.isEmpty)||(x.e_v!=null)
       })
       .groupBy("uid", "e_a", "e_c"/*, "e_n", "e_v"*/)
       .count()
@@ -94,13 +103,17 @@ object MKStage2Client extends Logging {
       .groupBy("e_c","e_a")
       .count()
       .drop("e_c")
+      .orderBy("count")
       .as[FunnelCount]
       .collectAsList()
 
     var funnelOrder = Map[String,Long]()
+    var funnelPrint = ""
     for(x <- funnelCounts.asScala){
+      funnelPrint+=x.e_a+":"+x.count+", "
       funnelOrder += (x.e_a -> x.count)
     }
+    println(funnelPrint)
 
     val funnel = funnelAggregation
       .groupBy("uid","e_c")
@@ -121,7 +134,7 @@ object MKStage2Client extends Logging {
       .groupBy("e_c","funnelsteps")
       .agg(
         countDistinct("uid").alias("count")
-      )
+      ).orderBy(desc("count"))
 
     PersistenceHelper.saveAndShow(localDevEnv,showResults,funnel,config.getEnvironmentString("result.client.funnels"),null,processFromStart)
 
@@ -160,6 +173,13 @@ object MKStage2Client extends Logging {
       .persist(StorageLevel.MEMORY_AND_DISK)
 
     println("Users " + ((System.nanoTime() - startTime) / 1000000000.0))
+
+    val processedUntilArray = users.select("date").agg(max("date").as("date")).withColumn("date",date_add($"date",-1)).collectAsList()
+    if(processedUntilArray.size>0){
+      processedUntil = Date.valueOf(processedUntilArray.get(0).getAs[Date]("date").toString)
+    }
+
+    println(processedUntil.toString)
 
     val usersForBasics = users
       .flatMap(x => {

@@ -1,7 +1,6 @@
 package com.zhimo.datahub.common
 
 import java.net.{URL, URLDecoder}
-
 import org.uaparser.scala.{Client, Parser}
 
 
@@ -29,16 +28,37 @@ object ParsingHelper {
   def parseUrl(str:String):MKUrlWithContext = {
     val url = new URL(str)
     val path = decodeUrl(str.replace(url.getHost,"").replace(url.getProtocol+"://","").replace("/index.html?#",""))
+    val pattern = "/([a-z][a-z,A-Z]*)/".r
+    var pathForPattern = (if(path.endsWith("/")) path else path+"/").replace("/","//").replace("wechat","")
+    val patternNameRemover = "name//([^/]*)/".r
+    for(x<-patternNameRemover.findAllMatchIn(pathForPattern)){
+      val name = x.group(0).replace("name//","").replace("/","")
+      pathForPattern = pathForPattern.replace(name,"")
+    }
+    var withoutIds = ""
+    if(pathForPattern.startsWith("/")){
+      var skipNext = false
+      for (x <- pattern.findAllMatchIn(pathForPattern)) {
+        if(!skipNext) {
+          val group = x.group(0).replace("/", "")
+          withoutIds += group + "/"
+          if(group=="talkcloud" || group == "name")skipNext = true
+        }else{
+          skipNext = false
+        }
+      }
+
+    }
     if(path.startsWith("/wechat")){
-      MKUrlWithContext(path.replace("/wechat",""),isWechat = true)
+      MKUrlWithContext(path.replace("/wechat",""),isWechat = true,withoutIds)
     }else{
-      MKUrlWithContext(path,isWechat = false)
+      MKUrlWithContext(path,isWechat = false,withoutIds)
     }
   }
 
 }
 
-case class MKUrlWithContext(url:String,isWechat:Boolean)
+case class MKUrlWithContext(url:String,isWechat:Boolean,urlWithoutIds:String)
 
 case class MKUserAgent(client:Client,language:String,connection:String) {
 }
