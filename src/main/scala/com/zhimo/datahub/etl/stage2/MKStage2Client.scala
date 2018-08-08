@@ -5,7 +5,7 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, expr , max, date_add,lit,desc}
+import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, expr , max, date_add,lit,desc,sum}
 import org.apache.spark.storage.StorageLevel
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -75,11 +75,7 @@ object MKStage2Client extends Logging {
           x.u_a
         ), FunnelData(
           if(x.uid == null || x.uid.isEmpty) x._id else x.uid,
-          //x.e_a,
-          parsedUrl.urlWithoutIds,
-          ""//,
-          //ParsingHelper.decodeUrl(x.e_n),
-          //x.e_v
+          parsedUrl.urlWithoutIds
         ))
       })
 
@@ -88,21 +84,18 @@ object MKStage2Client extends Logging {
         x._2
       })
       .filter(x=>{
-        (x.e_a!=null)//||(x.e_c!=null)//||(!x.e_n.isEmpty)||(x.e_v!=null)
+        x.url!=null
       })
-      .groupBy("uid", "e_a", "e_c"/*, "e_n", "e_v"*/)
+      .groupBy("uid", "url")
       .count()
       .drop("count")
       .persist(StorageLevel.MEMORY_AND_DISK)
 
     println("Funnel Aggregation " + ((System.nanoTime() - startTime) / 1000000000.0))
 
-
-
     val funnelCounts = funnelAggregation
-      .groupBy("e_c","e_a")
+      .groupBy("url")
       .count()
-      .drop("e_c")
       .orderBy("count")
       .as[FunnelCount]
       .collectAsList()
@@ -110,15 +103,15 @@ object MKStage2Client extends Logging {
     var funnelOrder = Map[String,Long]()
     var funnelPrint = ""
     for(x <- funnelCounts.asScala){
-      funnelPrint+=x.e_a+":"+x.count+", "
-      funnelOrder += (x.e_a -> x.count)
+      funnelPrint+=x.url+":"+x.count+", "
+      funnelOrder += (x.url -> x.count)
     }
     println(funnelPrint)
 
     val funnel = funnelAggregation
-      .groupBy("uid","e_c")
+      .groupBy("uid")
       .agg(
-        collect_list("e_a").alias("funnelsteps")
+        collect_list("url").alias("funnelsteps")
       )
       .as[FunnelEntry]
       .map(x=>{
@@ -126,15 +119,20 @@ object MKStage2Client extends Logging {
           funnelOrder.getOrElse(a,0L)>funnelOrder.getOrElse(b,0L)
         })
         FunnelEntry(
-          x.e_c,
           steps,
           x.uid
         )
       })
-      .groupBy("e_c","funnelsteps")
+      .groupBy("funnelsteps")
       .agg(
         countDistinct("uid").alias("count")
       ).orderBy(desc("count"))
+      .as[FunnelResult]
+      .map(x=>{
+        //println(x.funnelsteps+" - "+x.count)
+        x
+      }).toDF()
+
 
     PersistenceHelper.saveAndShow(localDevEnv,showResults,funnel,config.getEnvironmentString("result.client.funnels"),null,processFromStart)
 
@@ -302,7 +300,7 @@ object MKStage2Client extends Logging {
 }
 
 case class FunnelCount(
-  e_a:String,
+  url:String,
   count:Long
                )
 
@@ -410,20 +408,15 @@ final case class UserLogRecord(
 
 final case class FunnelData(
                              uid: String,
-                             e_a: String,
-                             e_c: String//,
-//                             e_n: String,
-//                             e_v: String
+                             url: String
                            )
 
 final case class FunnelEntry(
-                            e_c:String,
                             funnelsteps:List[String],
                             uid:String
                             )
 
 final case class FunnelResult(
-                              e_c:String,
                               funnelsteps:List[String],
                               count:Long
                             )
