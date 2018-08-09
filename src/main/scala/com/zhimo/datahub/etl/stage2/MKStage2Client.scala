@@ -5,7 +5,7 @@ import java.sql.Date
 import com.zhimo.datahub.common._
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.{collect_list, countDistinct, datediff, last, min, expr , max, date_add,lit,desc,sum}
+import org.apache.spark.sql.functions._
 import org.apache.spark.storage.StorageLevel
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -33,6 +33,7 @@ object MKStage2Client extends Logging {
     }
 
     println(processedUntil.toString)
+    println(ParsingHelper.parseUrl(ParsingHelper.decodeUrl("https%3A%2F%2Fmk.zhimo.co%2Fwechat%2Fmobile%2F13816038849%2Fname%2F%25E5%25BC%25A0%25E5%25AE%2587%25E7%2580%259A%2Fid%2F65082%2FloginSuccess%2F")))
 
     val sparkConf = new SparkConf()
       .setAppName(ConfigHelper.getClassName(this))
@@ -76,8 +77,31 @@ object MKStage2Client extends Logging {
         ), FunnelData(
           if(x.uid == null || x.uid.isEmpty) x._id else x.uid,
           parsedUrl.urlWithoutIds
+        ),FunnelData(
+          if(x.uid == null || x.uid.isEmpty) x._id else x.uid,
+          parsedUrl.url
         ))
       })
+
+    val homeWorkReportDistibution = cleanedUpData
+      .map(x=>{x._3})
+      .filter(x=>{
+        x.url.contains("homeWorkReport")
+      })
+      .map(x=>{
+        FunnelData(x.uid,ParsingHelper.parseParamFromUrl(x.url,"homeWorkReport"))
+      })
+      .groupBy("url","uid")
+      .count()
+      .drop("uid")
+      .withColumnRenamed("count","timesOpened")
+      .groupBy("timesOpened")
+      .count()
+      .orderBy(asc("timesOpened"))
+
+    PersistenceHelper.saveAndShow(localDevEnv,showResults,homeWorkReportDistibution,config.getEnvironmentString("result.client.reportOpenDistribution"),null,processFromStart)
+
+
 
     val funnelAggregation = cleanedUpData
       .map(x => {
@@ -95,8 +119,8 @@ object MKStage2Client extends Logging {
 
     val funnelCounts = funnelAggregation
       .groupBy("url")
-      .count()
-      .orderBy("count")
+      .agg(countDistinct("uid").alias("count"))
+      .orderBy(desc("count"))
       .as[FunnelCount]
       .collectAsList()
 

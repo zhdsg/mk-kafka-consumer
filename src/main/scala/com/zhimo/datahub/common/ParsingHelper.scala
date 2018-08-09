@@ -25,6 +25,18 @@ object ParsingHelper {
     MKUserAgent(parser.parse(string),language,netType)
   }
 
+  def parseParamFromUrl(urlToParse:String,paramName:String):String = {
+    var pathForPattern = if(urlToParse.endsWith("/")) urlToParse else urlToParse+"/"
+    val pattern = ("/"+paramName+"/([^/]*)/").r
+    val m = pattern.findFirstMatchIn(pathForPattern)
+    if(m.nonEmpty){
+      m.get.group(0).replace(paramName,"").replace("/","")
+    }
+    else{
+      ""
+    }
+  }
+
   def parseUrl(str:String):MKUrlWithContext = {
     val url = new URL(str)
     val path = decodeUrl(str.replace(url.getHost,"").replace(url.getProtocol+"://","").replace("/index.html?#",""))
