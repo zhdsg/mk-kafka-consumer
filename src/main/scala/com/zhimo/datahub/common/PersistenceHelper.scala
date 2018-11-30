@@ -18,7 +18,7 @@ object PersistenceHelper {
     if(localDevEnv) {
       "tmp/" + hiveStorage + ".parquet"
     }else{
-      "/user/zhanghao/tmp/" + hiveStorage + ".parquet"
+      "/user/root/tmp/" + hiveStorage + ".parquet"
     }
   }
 
