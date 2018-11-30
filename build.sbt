@@ -16,8 +16,11 @@ if(localDev){
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
     "org.apache.spark" %% "spark-hive" % sparkVersion,
     "org.uaparser" %% "uap-scala" % "0.2.0",
-    "com.typesafe" % "config" % "1.3.3"
+    "com.typesafe" % "config" % "1.3.3",
+    "mysql" % "mysql-connector-java" % "5.1.43"
   )
+
+
 }else {
   libraryDependencies ++= Seq(
     "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
@@ -26,8 +29,12 @@ if(localDev){
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
     "org.apache.spark" %% "spark-hive" % sparkVersion,
     "org.uaparser" %% "uap-scala" % "0.2.0",
-    "com.typesafe" % "config" % "1.3.3"
+    "com.typesafe" % "config" % "1.3.3",
+    "mysql" % "mysql-connector-java" % "5.1.43"
+
   )
+
+
 }
 
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>

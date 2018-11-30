@@ -1,13 +1,13 @@
 package com.zhimo.datahub.etl.stage1
 
 
-import com.zhimo.datahub.common.{ConfigHelper, ConsUtil, PersistenceHelper, SparkSessionSingleton}
+import com.zhimo.datahub.common._
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.{from_unixtime, to_date}
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
-import org.apache.spark.streaming.kafka010.KafkaUtils
+import org.apache.spark.streaming.kafka010.{HasOffsetRanges, KafkaUtils}
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
@@ -37,8 +37,8 @@ object MKStage1All extends Logging {
 
 
     // Template: Specify Kafka topic to stream from
-    val configuredTopicClient = config.getEnvironmentString("kafka.topic.client")
-    val configuredTopicServer = config.getEnvironmentString("kafka.topic.server")
+    val configuredTopicClient = config.getEnvironmentString("kafka.topic.client").split(",")
+    val configuredTopicServer = config.getEnvironmentString("kafka.topic.server").split(",")
 
 
     val sparkConf = new SparkConf()
@@ -57,42 +57,76 @@ object MKStage1All extends Logging {
     ))
 
     ssc.checkpoint("/tmp/log-analyzer-streaming")
-    if (localDevEnv) {
+       if (localDevEnv) {
       ssc.sparkContext.setLogLevel("ERROR")
     } else {
       ssc.sparkContext.setLogLevel("ERROR")
     }
+    val offsetManager = new OffsetManager()
+   // val bc = ssc.sparkContext.broadcast[ConfigHelper](config)
+    //冷启动 offset 为空
+    val streamClient ={
+      offsetManager.readOffset(configuredTopicClient,config) match{
+        case Some(offsets) =>
+          KafkaUtils.createDirectStream[String, String](
+          ssc,
+          PreferConsistent,
+          Subscribe[String, String](configuredTopicClient,kafkaParams,offsets)
+          )
+        case None =>
+          PersistenceHelper.deleteParquet(storageClient)
+          KafkaUtils.createDirectStream[String, String](
+            ssc,
+            PreferConsistent,
+            Subscribe[String, String](configuredTopicClient, kafkaParams)
+          )
+      }
 
-    val streamClient = KafkaUtils.createDirectStream[String, String](
-      ssc,
-      PreferConsistent,
-      Subscribe[String, String](Array(configuredTopicClient), kafkaParams)
-    )
-
-
-    val streamServer = KafkaUtils.createDirectStream[String, String](
-      ssc,
-      PreferConsistent,
-      Subscribe[String, String](Array(configuredTopicServer), kafkaParams)
-    )
-
-    val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf, !localDevEnv)
-
-    if (processFromStart) { // Clean up storage if processing from start
-      PersistenceHelper.deleteParquet(storageClient)
-      PersistenceHelper.deleteParquet(storageServerPayment)
-      PersistenceHelper.deleteParquet(storageServerRefund)
-      PersistenceHelper.deleteParquet(storageServerStudent)
-      PersistenceHelper.deleteParquet(storageServerSignup)
     }
 
+
+    val streamServer ={
+      offsetManager.readOffset(configuredTopicServer,config ) match{
+        case Some(offsets) =>
+          KafkaUtils.createDirectStream[String, String](
+            ssc,
+            PreferConsistent,
+            Subscribe[String, String](configuredTopicServer, kafkaParams,offsets)
+          )
+        case None =>
+          PersistenceHelper.deleteParquet(storageServerPayment)
+          PersistenceHelper.deleteParquet(storageServerRefund)
+          PersistenceHelper.deleteParquet(storageServerStudent)
+          PersistenceHelper.deleteParquet(storageServerSignup)
+          KafkaUtils.createDirectStream[String, String](
+            ssc,
+            PreferConsistent,
+            Subscribe[String, String](configuredTopicServer, kafkaParams)
+          )
+      }
+
+    }
+    val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf, !localDevEnv)
+
+//    if (processFromStart) { // Clean up storage if processing from start
+//      PersistenceHelper.deleteParquet(storageClient)
+//      PersistenceHelper.deleteParquet(storageServerPayment)
+//      PersistenceHelper.deleteParquet(storageServerRefund)
+//      PersistenceHelper.deleteParquet(storageServerStudent)
+//      PersistenceHelper.deleteParquet(storageServerSignup)
+//    }
+
     streamClient
-      .map(_.value)
+
       .foreachRDD(rdd => {
+        //get kafka offset
+        val offsetRange = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+        offsetManager.writeOffset(offsetRange,new ConfigHelper(this),true)
         if (!rdd.isEmpty()) {
+          val values =rdd.map(_.value)
           val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf, !localDevEnv)
           import spark.implicits._
-          val ds = spark.createDataset[String](rdd)
+          val ds = spark.createDataset[String](values)
           val df = spark.read.json(ds)
 
           val toSave = df
@@ -103,20 +137,27 @@ object MKStage1All extends Logging {
 
           PersistenceHelper.saveToParquetStorage(toSave, storageClient)
           df.show()
+
         }
+        offsetManager.writeOffset(offsetRange,new ConfigHelper(this),false)
       })
 
     streamServer
-      .map(_.value)
-      .filter(_.length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET)
-      .map(x=>(
-        "{\"date\":\"".concat(x.substring(0,ConsUtil.MK_SERVER_LOG_DATE_OFFSET)).concat("\",").concat(x.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET+1))
-        ))
       .foreachRDD(rdd => {
-        if(!rdd.isEmpty()) {
+        //get kafka offset
+        val offsetRange = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+        offsetManager.writeOffset(offsetRange,new ConfigHelper(this),false)
+        val values =rdd.map(_.value)
+          .filter(_.length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET)
+          .map(x=>(
+            "{\"date\":\"".concat(x.substring(0,ConsUtil.MK_SERVER_LOG_DATE_OFFSET)).concat("\",").concat(x.substring(ConsUtil.MK_SERVER_LOG_ROW_OFFSET+1))
+            ))
+
+        if(!values.isEmpty()) {
+
           val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
           import spark.implicits._
-          val ds = spark.createDataset[String](rdd)
+          val ds = spark.createDataset[String](values)
           val df = spark.read.json(ds)
 
           val payments = df.filter(x => {
@@ -156,6 +197,8 @@ object MKStage1All extends Logging {
           PersistenceHelper.saveToParquetStorage(signups, storageServerSignup, "date")
 
         }
+
+        offsetManager.writeOffset(offsetRange,new ConfigHelper(this),false)
       })
 
     logInfo("Start the computation...")
