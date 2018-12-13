@@ -141,7 +141,7 @@ object MKStage1All extends Logging {
       .foreachRDD(rdd => {
         //get kafka offset
         val offsetRange = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-        offsetManager.writeOffset(offsetRange,new ConfigHelper(this),false)
+        offsetManager.writeOffset(offsetRange,new ConfigHelper(this),true)
         val values =rdd.map(_.value)
           .filter(_.length > ConsUtil.MK_SERVER_LOG_ROW_OFFSET)
           .map(x=>(
