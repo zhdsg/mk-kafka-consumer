@@ -74,6 +74,9 @@ object MKStage1All extends Logging {
           Subscribe[String, String](configuredTopicClient,kafkaParams,offsets)
           )
         case None =>
+          if (processFromStart) { // Clean up storage if processing from start
+            PersistenceHelper.deleteParquet(storageClient)
+          }
           KafkaUtils.createDirectStream[String, String](
             ssc,
             PreferConsistent,
@@ -93,6 +96,12 @@ object MKStage1All extends Logging {
             Subscribe[String, String](configuredTopicServer, kafkaParams,offsets)
           )
         case None =>
+          if (processFromStart) { // Clean up storage if processing from start
+            PersistenceHelper.deleteParquet(storageServerPayment)
+            PersistenceHelper.deleteParquet(storageServerRefund)
+            PersistenceHelper.deleteParquet(storageServerStudent)
+            PersistenceHelper.deleteParquet(storageServerSignup)
+          }
           KafkaUtils.createDirectStream[String, String](
             ssc,
             PreferConsistent,
@@ -103,13 +112,13 @@ object MKStage1All extends Logging {
     }
     val sparkSession = SparkSessionSingleton.getInstance(ssc.sparkContext.getConf, !localDevEnv)
 
-    if (processFromStart) { // Clean up storage if processing from start
-      PersistenceHelper.deleteParquet(storageClient)
-      PersistenceHelper.deleteParquet(storageServerPayment)
-      PersistenceHelper.deleteParquet(storageServerRefund)
-      PersistenceHelper.deleteParquet(storageServerStudent)
-      PersistenceHelper.deleteParquet(storageServerSignup)
-    }
+//    if (processFromStart) { // Clean up storage if processing from start
+//      PersistenceHelper.deleteParquet(storageClient)
+//      PersistenceHelper.deleteParquet(storageServerPayment)
+//      PersistenceHelper.deleteParquet(storageServerRefund)
+//      PersistenceHelper.deleteParquet(storageServerStudent)
+//      PersistenceHelper.deleteParquet(storageServerSignup)
+//    }
 
     streamClient
 
