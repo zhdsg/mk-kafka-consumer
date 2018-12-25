@@ -88,12 +88,12 @@ class OffsetManager extends Serializable{
 object OffsetManager{
   def main(args: Array[String]) {
     val config = new ConfigHelper(this)
-//    new OffsetManager().readOffset(Array("aaa","bbb"),config) match {
-//      case Some(a) => a.foreach(f=>println(f._1+"|"+f._2))
-//      case None=> println("null")
-//    }
-    val array = Array(OffsetRange.create("aaa",1,1111,3),OffsetRange.create("bbb",2,1111,4),OffsetRange.create("ddd",222,1111,2222))
-    new OffsetManager().writeOffset(array,config,true)
+    new OffsetManager().readOffset(Array("aaa","bbb"),config) match {
+      case Some(a) => a.foreach(f=>println(f._1+"|"+f._2))
+      case None=> println("null")
+    }
+//    val array = Array(OffsetRange.create("aaa",1,1111,3),OffsetRange.create("bbb",2,1111,4),OffsetRange.create("ddd",222,1111,2222))
+//    new OffsetManager().writeOffset(array,config,true)
 
   }
 }

@@ -84,7 +84,10 @@ object PersistenceHelper {
     val spark = SparkSessionSingleton.getInstanceIfExists()
     val hadoopConf = spark.sparkContext.hadoopConfiguration
     val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
-    hdfs.delete(new org.apache.hadoop.fs.Path(getParquetStorage(table)), true)
+    if(hdfs.exists(new org.apache.hadoop.fs.Path(getParquetStorage(table)))){
+      hdfs.delete(new org.apache.hadoop.fs.Path(getParquetStorage(table)), true)
+    }
+
   }
 
 
