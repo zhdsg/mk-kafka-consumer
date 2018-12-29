@@ -87,7 +87,6 @@ object PersistenceHelper {
     if(hdfs.exists(new org.apache.hadoop.fs.Path(getParquetStorage(table)))){
       hdfs.delete(new org.apache.hadoop.fs.Path(getParquetStorage(table)), true)
     }
-
   }
 
 

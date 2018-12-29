@@ -1,6 +1,6 @@
 package com.zhimo.datahub.common
 
-import kafka.common.TopicAndPartition
+
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.streaming.kafka010.OffsetRange
 

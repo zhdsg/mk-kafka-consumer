@@ -6,6 +6,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.{from_unixtime, to_date}
+import org.apache.spark.sql.types.{StringType, StructType, StructField}
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.streaming.kafka010.{HasOffsetRanges, KafkaUtils}
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
@@ -85,8 +86,6 @@ object MKStage1All extends Logging {
       }
 
     }
-
-
     val streamServer ={
       offsetManager.readOffset(configuredTopicServer,config ) match{
         case Some(offsets) =>
@@ -131,16 +130,58 @@ object MKStage1All extends Logging {
           val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf, !localDevEnv)
           import spark.implicits._
           val ds = spark.createDataset[String](values)
-          val df = spark.read.json(ds)
+          val df= spark.read.json(ds)
 
-          val toSave = df
+          val schemaRefund = StructType(
+            StructField("_id", StringType, true) ::
+              StructField("_idn", StringType, true) ::
+              StructField("_idts", StringType, true) ::
+              StructField("_idvc", StringType, true) ::
+              StructField("_ref", StringType, true) ::
+              StructField("_refts", StringType, true) ::
+              StructField("_viewts", StringType, true) ::
+              StructField("action_name", StringType, true) ::
+              StructField("ag", StringType, true) ::
+              StructField("appId", StringType, true) ::
+              StructField("cookie", StringType, true) ::
+              StructField("data", StringType, true) ::
+              StructField("dir", StringType, true) ::
+              StructField("e_a", StringType, true) ::
+              StructField("e_c", StringType, true) ::
+              StructField("e_n", StringType, true) ::
+              StructField("e_v", StringType, true) ::
+              StructField("fla", StringType, true) ::
+              StructField("gears", StringType, true) ::
+              StructField("gt_ms", StringType, true) ::
+              StructField("ip", StringType, true) ::
+              StructField("java", StringType, true) ::
+              StructField("pdf", StringType, true) ::
+              StructField("pv_id", StringType, true) ::
+              StructField("qt", StringType, true) ::
+              StructField("r", StringType, true) ::
+              StructField("realp", StringType, true) ::
+              StructField("rec", StringType, true) ::
+              StructField("res", StringType, true) ::
+              StructField("t", StringType, true) ::
+              StructField("u_a", StringType, true) ::
+              StructField("uid", StringType, true) ::
+              StructField("url", StringType, true) ::
+              StructField("urlref", StringType, true) ::
+              StructField("wma", StringType, true) ::
+              Nil
+          )
+          //强制转换类型
+          val df1 = spark.createDataFrame(df.rdd, schemaRefund)
+         // df1.printSchema()
+
+          val toSave = df1.toDF()
             .filter(x => {
               x.getAs[Any]("t") != null
             })
             .withColumn("date", to_date(from_unixtime(df("t") / 1000)))
 
           PersistenceHelper.saveToParquetStorage(toSave, storageClient)
-          df.show()
+         // df.show()
 
         }
         offsetManager.writeOffset(offsetRange,new ConfigHelper(this),false)
@@ -186,14 +227,14 @@ object MKStage1All extends Logging {
           val signups = df.filter(x => {
             x.getAs[String]("actionType").equals(ConsUtil.SIGNUP_CLASS)
           })
-          payments.printSchema()
-          payments.show()
-          refunds.printSchema()
-          refunds.show()
-          students.printSchema()
-          students.show()
-          signups.printSchema()
-          signups.show()
+//          payments.printSchema()
+//          payments.show()
+//          refunds.printSchema()
+//          refunds.show()
+//          students.printSchema()
+//          students.show()
+//          signups.printSchema()
+//          signups.show()
 
           PersistenceHelper.saveToParquetStorage(payments, storageServerPayment, "date")
           PersistenceHelper.saveToParquetStorage(refunds, storageServerRefund, "date")
@@ -213,3 +254,41 @@ object MKStage1All extends Logging {
   }
 
 }
+final case class ClientLog(
+                                //date: String,
+                                _id: String,
+                                _idn:String,
+                                _idts:String,
+                                _idvc:String,
+                                _ref: String,
+                                _refts:String,
+                                _viewts:String,
+                                action_name: String,
+                                ag:String,
+                                appId: String,
+                                cookie:String,
+                                data:String,
+                                dir:String,
+                                e_a: String,
+                                e_c: String,
+                                e_n: String,
+                                e_v: String,
+                                fla:String,
+                                gears:String,
+                                gt_ms:String,
+                                ip: String,
+                                java:String,
+                                pdf:String,
+                                pv_id:String,
+                                qt:String,
+                                r:String,
+                                realp:String,
+                                rec:String,
+                                res: String,
+                                t: String,
+                                u_a: String,
+                                uid: String,
+                                url: String,
+                                urlref: String,
+                                wma:String
+                                )

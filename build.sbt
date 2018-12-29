@@ -12,7 +12,7 @@ if(localDev){
   libraryDependencies ++= Seq(
     "org.apache.spark" %% "spark-core" % sparkVersion,
     "org.apache.spark" %% "spark-streaming" % sparkVersion,
-    "org.apache.spark" %% "spark-sql" % "2.2.0",
+    "org.apache.spark" %% "spark-sql" % sparkVersion,
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
     "org.apache.spark" %% "spark-hive" % sparkVersion,
     "org.uaparser" %% "uap-scala" % "0.2.0",
@@ -25,7 +25,7 @@ if(localDev){
   libraryDependencies ++= Seq(
     "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
     "org.apache.spark" %% "spark-streaming" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-sql" % "2.2.0",
+    "org.apache.spark" %% "spark-sql" % sparkVersion,
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
     "org.apache.spark" %% "spark-hive" % sparkVersion,
     "org.uaparser" %% "uap-scala" % "0.2.0",
