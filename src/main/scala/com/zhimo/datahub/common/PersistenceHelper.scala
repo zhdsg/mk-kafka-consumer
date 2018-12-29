@@ -1,5 +1,6 @@
 package com.zhimo.datahub.common
 
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.permission.FsPermission
 import java.sql.Date
 import java.util.Properties
@@ -82,7 +83,8 @@ object PersistenceHelper {
 
   def deleteParquet(table:String):Unit= {
     val spark = SparkSessionSingleton.getInstanceIfExists()
-    val hadoopConf = spark.sparkContext.hadoopConfiguration
+    //val hadoopConf = spark.sparkContext.hadoopConfiguration
+    val hadoopConf = new Configuration()
     val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
     if(hdfs.exists(new org.apache.hadoop.fs.Path(getParquetStorage(table)))){
       hdfs.delete(new org.apache.hadoop.fs.Path(getParquetStorage(table)), true)
